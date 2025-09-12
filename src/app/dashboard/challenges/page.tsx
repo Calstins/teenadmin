@@ -263,8 +263,9 @@ export default function ChallengesPage() {
                               Delete Challenge
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "{challenge.theme}
-                              "? This action cannot be undone.
+                              Are you sure you want to delete &quot;
+                              {challenge.theme}
+                              &quot;? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

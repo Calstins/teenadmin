@@ -229,8 +229,8 @@ export default function StaffPage() {
                               Delete Staff Member
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "{member.name}"?
-                              This action cannot be undone.
+                              Are you sure you want to delete &quot;
+                              {member.name}&quot;? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
