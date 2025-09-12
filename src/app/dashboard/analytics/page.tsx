@@ -1,5 +1,5 @@
-// app/aabddhors / analytics / page.tsx;
-('use client');
+// app/dashboard/ analytics / page.tsx;
+'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
