@@ -30,14 +30,19 @@ export default function AnalyticsPage() {
       }),
   });
 
-  const analytics = data?.data || [];
+  const analytics = Array.isArray(data?.data) ? data.data : [];
+
+  console.log('Raw data:', data);
+  console.log('Analytics array:', analytics);
 
   const totalStats = analytics.reduce(
     (acc: any, challenge: any) => ({
       totalParticipants:
-        acc.totalParticipants + challenge.stats.totalParticipants,
-      totalCompleted: acc.totalCompleted + challenge.stats.completedCount,
-      averageProgress: acc.averageProgress + challenge.stats.averageProgress,
+        acc.totalParticipants + (challenge.stats?.totalParticipants || 0),
+      totalCompleted:
+        acc.totalCompleted + (challenge.stats?.completedCount || 0),
+      averageProgress:
+        acc.averageProgress + (challenge.stats?.averageProgress || 0),
     }),
     { totalParticipants: 0, totalCompleted: 0, averageProgress: 0 }
   );

@@ -1,3 +1,4 @@
+// lib/auth.ts
 'use client';
 
 import { create } from 'zustand';
@@ -16,11 +17,12 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
+  clearAuth: () => void; // Add method to clear auth without redirect
 }
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -33,10 +35,28 @@ export const useAuth = create<AuthState>()(
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_user');
         set({ user: null, token: null, isAuthenticated: false });
+        // Only redirect if we're not already on login page
+        if (
+          typeof window !== 'undefined' &&
+          !window.location.pathname.includes('/login')
+        ) {
+          window.location.href = '/login';
+        }
+      },
+      clearAuth: () => {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        set({ user: null, token: null, isAuthenticated: false });
       },
     }),
     {
       name: 'auth-storage',
+      // Add error handling for persist
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('Auth rehydration error:', error);
+        }
+      },
     }
   )
 );

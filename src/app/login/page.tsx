@@ -1,3 +1,4 @@
+// app/login/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -33,12 +34,14 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
 
-  const form = useForm<z.infer<typeof loginSchema>>({
+  const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
@@ -46,7 +49,7 @@ export default function LoginPage() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof loginSchema>) {
+  async function onSubmit(values: LoginFormData) {
     setIsLoading(true);
     try {
       const response = await authAPI.login(values);
@@ -56,7 +59,20 @@ export default function LoginPage() {
       toast.success('Login successful!');
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      console.error('Login error:', error);
+
+      // Handle specific error cases without auto-logout
+      if (error.response?.status === 401) {
+        toast.error('Invalid email or password');
+      } else if (error.response?.status === 404) {
+        toast.error('Login service unavailable. Please try again later.');
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error(
+          'Login failed. Please check your connection and try again.'
+        );
+      }
     } finally {
       setIsLoading(false);
     }

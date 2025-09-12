@@ -1,3 +1,4 @@
+// lib/api.ts
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -9,6 +10,7 @@ const api = axios.create({
   },
 });
 
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token');
@@ -22,11 +24,27 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor - ONLY logout on auth-specific 401s
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Don't auto-logout on login page or during login attempts
+    if (
+      typeof window !== 'undefined' &&
+      window.location.pathname === '/login'
+    ) {
+      return Promise.reject(error);
+    }
+
+    // Only auto-logout for authentication-related 401s, not all 401s
+    if (
+      error.response?.status === 401 &&
+      (error.response?.data?.message?.includes('Invalid token') ||
+        error.response?.data?.message?.includes('Token expired') ||
+        error.response?.data?.message?.includes('No token provided') ||
+        error.response?.data?.message?.includes('Unauthorized') ||
+        error.response?.data?.message?.includes('Authentication required'))
+    ) {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');
       window.location.href = '/login';

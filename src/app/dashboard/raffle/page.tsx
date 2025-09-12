@@ -51,7 +51,9 @@ export default function RafflePage() {
   });
 
   const eligible = eligibleData?.data || {};
-  const history = historyData?.data || [];
+
+  // Fix: Ensure history is always an array
+  const history = Array.isArray(historyData?.data) ? historyData.data : [];
 
   return (
     <div className="space-y-6">
