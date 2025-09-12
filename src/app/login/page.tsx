@@ -35,6 +35,13 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// Helper function to set cookie
+function setCookie(name: string, value: string, days: number = 7) {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -55,9 +62,19 @@ export default function LoginPage() {
       const response = await authAPI.login(values);
       const { user, token } = response.data.data;
 
+      // Set cookie for middleware
+      setCookie('admin_token', token);
+
+      // Update auth state
       login(user, token);
+
       toast.success('Login successful!');
-      router.push('/dashboard');
+
+      // Force a small delay to ensure state is set
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Use window.location for more reliable navigation on Vercel
+      window.location.href = '/dashboard';
     } catch (error: any) {
       console.error('Login error:', error);
 
