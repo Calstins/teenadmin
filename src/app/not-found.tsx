@@ -68,7 +68,7 @@ export default function NotFoundPage() {
             </div>
 
             <p className="text-gray-600 dark:text-gray-300 text-lg max-w-md mx-auto">
-              Looks like this page went on an adventure and got lost! Don't
+              Looks like this page went on an adventure and got lost! Don&apos;t
               worry, even the best explorers sometimes take a wrong turn.
             </p>
 
