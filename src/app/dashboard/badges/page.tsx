@@ -1,9 +1,10 @@
-// app/dashboard/badges/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { analyticsAPI, challengesAPI } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { challengesAPI, badgesAPI } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -12,111 +13,250 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Search, Trophy, DollarSign, Users, TrendingUp } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Trophy,
+  Eye,
+  LayoutGrid,
+  Table2,
+  ChevronLeft,
+  ChevronRight,
+  Award,
+  DollarSign,
+  Users,
+} from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ViewBadgeDialog } from '@/components/badges/view-badge-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
-export default function BadgesPage() {
+interface BadgeData {
+  id: string;
+  challengeId: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  price: number;
+  isActive: boolean;
+  challenge?: {
+    id: string;
+    theme: string;
+    year: number;
+    month: number;
+  };
+  _count?: {
+    teenBadges: number;
+  };
+}
+
+interface ChallengeData {
+  id: string;
+  theme: string;
+  year: number;
+  month: number;
+  badge?: any;
+}
+
+export default function BadgeManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [statusFilter, setStatusFilter] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeData | null>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: badgeStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['badge-stats', selectedYear],
-    queryFn: () => analyticsAPI.getBadgeStats({ year: selectedYear }),
+  // Fetch badges
+  const { data: badgesData, isLoading: badgesLoading } = useQuery({
+    queryKey: ['admin-badges', selectedYear, searchTerm],
+    queryFn: () => badgesAPI.getAll({
+      year: selectedYear, search: searchTerm, isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
+    }),
   });
 
-  const { data: challengesData, isLoading: challengesLoading } = useQuery({
-    queryKey: ['challenges-badges', selectedYear, searchTerm],
-    queryFn: () =>
-      challengesAPI.getAll({
-        year: selectedYear,
-        search: searchTerm || undefined,
-      }),
+  // Fetch challenges for dropdown
+  const { data: challengesData } = useQuery({
+    queryKey: ['challenges-for-badges', selectedYear],
+    queryFn: () => challengesAPI.getAll({ year: selectedYear }),
   });
 
-  const challenges = challengesData?.data?.challenges || [];
-  const stats = badgeStats?.data || {};
+  const badges: BadgeData[] = badgesData?.data?.data || [];
+  const challenges: ChallengeData[] = challengesData?.data?.challenges || [];
+
+  // Pagination
+  const totalPages = Math.ceil(badges.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBadges = badges.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleYearChange = (value: number) => {
+    setSelectedYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: any) => badgesAPI.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-badges'] });
+      toast.success('Badge created successfully!');
+      setCreateDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create badge');
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ badgeId, data }: { badgeId: string; data: any }) =>
+      badgesAPI.update(badgeId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-badges'] });
+      toast.success('Badge updated successfully!');
+      setEditDialogOpen(false);
+      setSelectedBadge(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update badge');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (badgeId: string) => badgesAPI.delete(badgeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-badges'] });
+      toast.success('Badge deleted successfully!');
+      setDeleteDialogOpen(false);
+      setSelectedBadge(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete badge');
+    },
+  });
+
+  const handleView = (badge: BadgeData) => {
+    setSelectedBadge(badge);
+    setViewDialogOpen(true);
+  };
+
+  const handleEdit = (badge: BadgeData) => {
+    setSelectedBadge(badge);
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (badge: BadgeData) => {
+    setSelectedBadge(badge);
+    setDeleteDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Badges</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Badge Management
+          </h2>
           <p className="text-muted-foreground">
-            Manage badges and view sales statistics
+            Create and manage challenge badges
           </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+          >
+            <Table2 className="h-4 w-4 mr-2" />
+            Table
+          </Button>
+          <Button
+            variant={viewMode === 'board' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('board')}
+          >
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Board
+          </Button>
+          {user?.role === 'ADMIN' && (
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Badge
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Badges</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{challenges.length}</div>
-            <p className="text-xs text-muted-foreground">Available this year</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Purchased</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(stats.statusBreakdown?.purchased || 0) +
-                (stats.statusBreakdown?.earned || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Total purchases</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats.totalRevenue || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Total earned</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Earned</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.statusBreakdown?.earned || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">Fully completed</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex space-x-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search badges..."
+            placeholder="Search badges by name or challenge..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-8"
           />
         </div>
         <select
           value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
-          className="px-3 py-2 border rounded-md"
+          onChange={(e) => handleYearChange(Number(e.target.value))}
+          className="px-3 py-2 border rounded-md bg-background min-w-[120px]"
         >
           {Array.from({ length: 5 }, (_, i) => {
             const year = new Date().getFullYear() - 2 + i;
@@ -127,87 +267,655 @@ export default function BadgesPage() {
             );
           })}
         </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value)}
+          className="px-3 py-2 border rounded-md bg-background min-w-[140px]"
+        >
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </div>
 
-      {/* Badges Grid */}
-      {challengesLoading || statsLoading ? (
-        <div className="text-center py-8">Loading badges...</div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {challenges.map((challenge: any) => (
-            <Card
-              key={challenge.id}
-              className="hover:shadow-md transition-shadow"
-            >
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {challenge.badge?.name || challenge.theme}
-                    </CardTitle>
-                    <CardDescription>
-                      {new Date(0, challenge.month - 1).toLocaleDateString(
-                        'en-US',
-                        { month: 'long' }
-                      )}{' '}
-                      {challenge.year}
-                    </CardDescription>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center">
-                    🏆
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Price:</span>
-                    <span className="font-medium">
-                      {challenge.badge
-                        ? formatCurrency(challenge.badge.price)
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Participants:</span>
-                    <span className="font-medium">
-                      {challenge._count.progress}
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Description:</span>
-                    <p className="text-xs mt-1 text-gray-600 dark:text-gray-300">
-                      {challenge.badge?.description || challenge.instructions}
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Status:
-                    </span>
-                    <Badge
-                      variant={challenge.isPublished ? 'default' : 'outline'}
-                    >
-                      {challenge.isPublished ? 'Published' : 'Draft'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {badgesLoading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading badges...</p>
         </div>
+      ) : viewMode === 'table' ? (
+        // TABLE VIEW
+        <>
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Badge</TableHead>
+                  <TableHead>Challenge</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Purchases</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedBadges.map((badge) => (
+                  <TableRow key={badge.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                          {badge.imageUrl ? (
+                            <img
+                              src={badge.imageUrl}
+                              alt={badge.name}
+                              className="w-full h-full object-cover rounded-full"
+                            />
+                          ) : (
+                            <Trophy className="h-5 w-5 text-white" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{badge.name}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {badge.description}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {badge.challenge?.theme}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {badge.challenge?.year}/{badge.challenge?.month}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={badge.isActive ? 'default' : 'secondary'}>
+                        {badge.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <DollarSign className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {formatCurrency(badge.price)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <Users className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">
+                          {badge._count?.teenBadges || 0}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleView(badge)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {user?.role === 'ADMIN' && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(badge)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDelete(badge)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to{' '}
+                {Math.min(endIndex, badges.length)} of {badges.length} badges
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <Button
+                        key={page}
+                        variant={
+                          currentPage === page ? 'default' : 'outline'
+                        }
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        // BOARD VIEW
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedBadges.map((badge) => (
+              <Card
+                key={badge.id}
+                className="hover:shadow-md transition-shadow"
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{badge.name}</CardTitle>
+                      <CardDescription>
+                        {badge.challenge?.theme} ({badge.challenge?.year}/
+                        {badge.challenge?.month})
+                      </CardDescription>
+                    </div>
+                    {badge.imageUrl && (
+                      <img
+                        src={badge.imageUrl}
+                        alt={badge.name}
+                        className="w-16 h-16 rounded-full object-cover"
+                      />
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                      {badge.description}
+                    </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Price:</span>
+                      <span className="font-medium">
+                        {formatCurrency(badge.price)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Purchases:</span>
+                      <span className="font-medium">
+                        {badge._count?.teenBadges || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        Status:
+                      </span>
+                      <Badge
+                        variant={badge.isActive ? 'default' : 'secondary'}
+                      >
+                        {badge.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex space-x-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleView(badge)}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      {user?.role === 'ADMIN' && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(badge)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(badge)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination for Board View */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to{' '}
+                {Math.min(endIndex, badges.length)} of {badges.length} badges
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <Button
+                        key={page}
+                        variant={
+                          currentPage === page ? 'default' : 'outline'
+                        }
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {challenges.length === 0 && !challengesLoading && (
+      {badges.length === 0 && !badgesLoading && (
         <div className="text-center py-8">
           <Trophy className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
             No badges found
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            No badges match your current search.
+            Get started by creating a new badge.
           </p>
         </div>
       )}
+
+      {/* Create Badge Dialog */}
+      <CreateBadgeDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        challenges={challenges}
+        onSubmit={(data) => createMutation.mutate(data)}
+        isLoading={createMutation.isPending}
+      />
+
+      {/* Edit Badge Dialog */}
+      <EditBadgeDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        badge={selectedBadge}
+        onSubmit={(data) =>
+          updateMutation.mutate({ badgeId: selectedBadge!.id, data })
+        }
+        isLoading={updateMutation.isPending}
+      />
+
+      {/* View Badge Dialog */}
+      <ViewBadgeDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        badge={selectedBadge}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Badge</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{selectedBadge?.name}&quot;?
+              This action cannot be undone.
+              {selectedBadge?._count && selectedBadge._count.teenBadges > 0 && (
+                <span className="block mt-2 text-red-600 font-medium">
+                  Warning: This badge has {selectedBadge._count.teenBadges}{' '}
+                  purchase(s).
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                selectedBadge && deleteMutation.mutate(selectedBadge.id)
+              }
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+// Create Badge Dialog Component
+interface CreateBadgeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  challenges: ChallengeData[];
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+}
+
+function CreateBadgeDialog({
+  open,
+  onOpenChange,
+  challenges,
+  onSubmit,
+  isLoading,
+}: CreateBadgeDialogProps) {
+  const [formData, setFormData] = useState({
+    challengeId: '',
+    name: '',
+    description: '',
+    imageUrl: '',
+    price: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Badge</DialogTitle>
+          <DialogDescription>
+            Create a badge for a monthly challenge
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="challengeId">Challenge</Label>
+            <Select
+              value={formData.challengeId}
+              onValueChange={(value) => handleChange('challengeId', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a challenge" />
+              </SelectTrigger>
+              <SelectContent>
+                {challenges
+                  .filter((c) => !c.badge) // Only show challenges without badges
+                  .map((challenge) => (
+                    <SelectItem key={challenge.id} value={challenge.id}>
+                      {challenge.theme} ({challenge.year}/{challenge.month})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="name">Badge Name</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              placeholder="e.g., Faith Foundations Badge"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Describe what this badge represents..."
+              rows={3}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="imageUrl">Image URL</Label>
+            <Input
+              id="imageUrl"
+              value={formData.imageUrl}
+              onChange={(e) => handleChange('imageUrl', e.target.value)}
+              placeholder="https://example.com/badge.png"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="price">Price (₦)</Label>
+            <Input
+              id="price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.price}
+              onChange={(e) => handleChange('price', e.target.value)}
+              placeholder="5.00"
+              required
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Creating...' : 'Create Badge'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Edit Badge Dialog Component
+interface EditBadgeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  badge: BadgeData | null;
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+}
+
+function EditBadgeDialog({
+  open,
+  onOpenChange,
+  badge,
+  onSubmit,
+  isLoading,
+}: EditBadgeDialogProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    imageUrl: '',
+    price: '',
+    isActive: true,
+  });
+
+  // Update form when badge changes
+  useEffect(() => {
+    if (badge) {
+      setFormData({
+        name: badge.name || '',
+        description: badge.description || '',
+        imageUrl: badge.imageUrl || '',
+        price: badge.price?.toString() || '',
+        isActive: badge.isActive ?? true,
+      });
+    }
+  }, [badge]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (field: string, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (!badge) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Badge</DialogTitle>
+          <DialogDescription>
+            Update badge details for {badge.challenge?.theme}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="edit-name">Badge Name</Label>
+            <Input
+              id="edit-name"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-description">Description</Label>
+            <Textarea
+              id="edit-description"
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={3}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-imageUrl">Image URL</Label>
+            <Input
+              id="edit-imageUrl"
+              value={formData.imageUrl}
+              onChange={(e) => handleChange('imageUrl', e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-price">Price (₦)</Label>
+            <Input
+              id="edit-price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.price}
+              onChange={(e) => handleChange('price', e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="edit-isActive"
+              checked={formData.isActive}
+              onChange={(e) => handleChange('isActive', e.target.checked)}
+              className="w-4 h-4"
+            />
+            <Label htmlFor="edit-isActive">Active</Label>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Updating...' : 'Update Badge'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

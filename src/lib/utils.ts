@@ -26,6 +26,6 @@ export function formatDateTime(date: string | Date) {
 export function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'NGN',
   }).format(amount);
 }

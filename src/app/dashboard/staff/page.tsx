@@ -13,10 +13,26 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  UserCheck,
+  UserX,
+  Eye,
+  LayoutGrid,
+  Table2,
+  ChevronLeft,
+  ChevronRight,
+  Trophy,
+  FileText,
+  CheckCircle,
+} from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import { CreateStaffDialog } from '@/components/staff/create-staff-dialog';
 import { EditStaffDialog } from '@/components/staff/edit-staff-dialog';
+import { ViewStaffDialog } from '@/components/staff/view-staff-dialog';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import {
@@ -30,18 +46,59 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    createdChallenges: number;
+    createdTasks: number;
+    reviewedSubmissions: number;
+  };
+}
 
 export default function StaffPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['staff', searchTerm],
-    queryFn: () => staffAPI.getAll({ search: searchTerm || undefined }),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['staff', searchTerm, roleFilter, statusFilter],
+    queryFn: async () => {
+      console.log('🔍 Fetching staff with filters');
+      const response = await staffAPI.getAll({
+        search: searchTerm || undefined,
+        role: roleFilter || undefined,
+        isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
+      });
+      console.log('✅ Staff API response:', response.data);
+      return response.data;
+    },
   });
 
   const updateMutation = useMutation({
@@ -52,6 +109,7 @@ export default function StaffPage() {
       toast.success('Staff member updated successfully!');
     },
     onError: (error: any) => {
+      console.error('Update error:', error);
       toast.error(
         error.response?.data?.message || 'Failed to update staff member'
       );
@@ -65,24 +123,52 @@ export default function StaffPage() {
       toast.success('Staff member deleted successfully!');
     },
     onError: (error: any) => {
+      console.error('Delete error:', error);
       toast.error(
         error.response?.data?.message || 'Failed to delete staff member'
       );
     },
   });
 
-  const staff = data?.data?.staff || [];
+  const staff: StaffMember[] = data?.data?.staff || [];
 
-  const toggleStatus = (staffMember: any) => {
+  // Pagination
+  const totalPages = Math.ceil(staff.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStaff = staff.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleChange = (value: string) => {
+    setRoleFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleView = (member: StaffMember) => {
+    setSelectedStaff(member);
+    setViewDialogOpen(true);
+  };
+
+  const handleEdit = (member: StaffMember) => {
+    setSelectedStaff(member);
+    setEditDialogOpen(true);
+  };
+
+  const toggleStatus = (staffMember: StaffMember) => {
     updateMutation.mutate({
       id: staffMember.id,
       data: { isActive: !staffMember.isActive },
     });
-  };
-
-  const handleEdit = (staffMember: any) => {
-    setEditingStaff(staffMember);
-    setEditDialogOpen(true);
   };
 
   // Only admins can access this page
@@ -90,6 +176,17 @@ export default function StaffPage() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600">Access denied. Admin role required.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    console.error('❌ Staff fetch error:', error);
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600">
+          Error loading staff: {(error as any).message}
+        </p>
       </div>
     );
   }
@@ -105,50 +202,299 @@ export default function StaffPage() {
             Manage admin and staff accounts
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Staff Member
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+          >
+            <Table2 className="h-4 w-4 mr-2" />
+            Table
+          </Button>
+          <Button
+            variant={viewMode === 'board' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('board')}
+          >
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Board
+          </Button>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Staff Member
+          </Button>
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search staff members..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-8"
-        />
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search staff members by name or email..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <select
+          value={roleFilter}
+          onChange={(e) => handleRoleChange(e.target.value)}
+          className="px-3 py-2 border rounded-md bg-background min-w-[120px]"
+        >
+          <option value="">All Roles</option>
+          <option value="ADMIN">Admin</option>
+          <option value="STAFF">Staff</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value)}
+          className="px-3 py-2 border rounded-md bg-background min-w-[140px]"
+        >
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="h-3 bg-gray-200 rounded"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading staff...</p>
         </div>
+      ) : viewMode === 'table' ? (
+        // TABLE VIEW
+        <>
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Staff Member</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Challenges</TableHead>
+                  <TableHead>Tasks</TableHead>
+                  <TableHead>Reviews</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedStaff.map((member: StaffMember) => (
+                  <TableRow key={member.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">
+                            {member.name
+                              .split(' ')
+                              .map((n: string) => n[0])
+                              .join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-sm">{member.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {member.email}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          member.role === 'ADMIN' ? 'default' : 'secondary'
+                        }
+                      >
+                        {member.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={member.isActive ? 'default' : 'secondary'}
+                      >
+                        {member.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <Trophy className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">
+                          {member._count.createdChallenges}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <FileText className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">
+                          {member._count.createdTasks}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <CheckCircle className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">
+                          {member._count.reviewedSubmissions}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDateTime(member.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleView(member)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(member)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleStatus(member)}
+                          disabled={updateMutation.isPending}
+                        >
+                          {member.isActive ? (
+                            <UserX className="h-4 w-4" />
+                          ) : (
+                            <UserCheck className="h-4 w-4" />
+                          )}
+                        </Button>
+                        {member.id !== user.id && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete Staff Member
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete &quot;
+                                  {member.name}&quot;? This action cannot be
+                                  undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() =>
+                                    deleteMutation.mutate(member.id)
+                                  }
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to{' '}
+                {Math.min(endIndex, staff.length)} of {staff.length} staff
+                members
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <Button
+                        key={page}
+                        variant={
+                          currentPage === page ? 'default' : 'outline'
+                        }
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {staff.map((member: any) => (
-            <Card key={member.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{member.name}</CardTitle>
-                    <CardDescription>{member.email}</CardDescription>
+        // BOARD VIEW
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedStaff.map((member: StaffMember) => (
+              <Card
+                key={member.id}
+                className="hover:shadow-md transition-shadow"
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {member.name
+                            .split(' ')
+                            .map((n: string) => n[0])
+                            .join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-lg">
+                          {member.name}
+                        </CardTitle>
+                        <CardDescription>{member.email}</CardDescription>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end space-y-1">
+                  <div className="flex space-x-1 mt-2">
                     <Badge
                       variant={
                         member.role === 'ADMIN' ? 'default' : 'secondary'
@@ -156,101 +502,165 @@ export default function StaffPage() {
                     >
                       {member.role}
                     </Badge>
-                    <Badge variant={member.isActive ? 'default' : 'secondary'}>
+                    <Badge
+                      variant={member.isActive ? 'default' : 'secondary'}
+                    >
                       {member.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Challenges Created:
-                    </span>
-                    <span className="font-medium">
-                      {member._count.createdChallenges}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Tasks Created:
-                    </span>
-                    <span className="font-medium">
-                      {member._count.createdTasks}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Reviews:</span>
-                    <span className="font-medium">
-                      {member._count.reviewedSubmissions}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Joined: {formatDateTime(member.createdAt)}
-                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Challenges Created:
+                      </span>
+                      <span className="font-medium">
+                        {member._count.createdChallenges}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Tasks Created:
+                      </span>
+                      <span className="font-medium">
+                        {member._count.createdTasks}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Reviews:</span>
+                      <span className="font-medium">
+                        {member._count.reviewedSubmissions}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Joined: {formatDateTime(member.createdAt)}
+                    </div>
 
-                  <div className="flex space-x-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(member)}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
+                    <div className="flex space-x-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleView(member)}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(member)}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleStatus(member)}
-                      disabled={updateMutation.isPending}
-                    >
-                      {member.isActive ? (
-                        <UserX className="h-3 w-3" />
-                      ) : (
-                        <UserCheck className="h-3 w-3" />
-                      )}
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleStatus(member)}
+                        disabled={updateMutation.isPending}
+                      >
+                        {member.isActive ? (
+                          <UserX className="h-3 w-3" />
+                        ) : (
+                          <UserCheck className="h-3 w-3" />
+                        )}
+                      </Button>
 
-                    {member.id !== user.id && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete Staff Member
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete &quot;
-                              {member.name}&quot;? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteMutation.mutate(member.id)}
-                              className="bg-red-600 hover:bg-red-700"
+                      {member.id !== user.id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete Staff Member
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete &quot;
+                                {member.name}&quot;? This action cannot be
+                                undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMutation.mutate(member.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination for Board View */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to{' '}
+                {Math.min(endIndex, staff.length)} of {staff.length} staff
+                members
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <Button
+                        key={page}
+                        variant={
+                          currentPage === page ? 'default' : 'outline'
+                        }
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {staff.length === 0 && !isLoading && (
@@ -273,7 +683,13 @@ export default function StaffPage() {
       <EditStaffDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
-        staff={editingStaff}
+        staff={selectedStaff}
+      />
+
+      <ViewStaffDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        staff={selectedStaff}
       />
     </div>
   );

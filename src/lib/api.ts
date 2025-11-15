@@ -73,10 +73,47 @@ export const authAPI = {
 
 // Challenges API
 export const challengesAPI = {
-  getAll: (params?: any) => api.get('/admin/challenges', { params }),
-  create: (data: any) => api.post('/admin/challenges', data),
-  publish: (id: string) => api.patch(`/admin/challenges/${id}/publish`),
-  delete: (id: string) => api.delete(`/admin/challenges/${id}`),
+  getAll: async (params?: any) => {
+    const response = await api.get('/admin/challenges', { params });
+    return response.data;
+  },
+
+  // ADD THIS METHOD
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/challenges/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/admin/challenges', data);
+    return response.data;
+  },
+
+  // ADD THIS METHOD
+  update: async (id: string, data: any) => {
+    const response = await api.patch(`/admin/challenges/${id}`, data);
+    return response.data;
+  },
+
+  publish: async (id: string) => {
+    const response = await api.patch(`/admin/challenges/${id}/publish`);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/admin/challenges/${id}`);
+    return response.data;
+  },
+};
+
+// Badges API
+export const badgesAPI = {
+  getAll: (params?: any) => api.get('/badges', { params }),
+  getById: (id: string) => api.get(`/badges/${id}`),
+  create: (data: any) => api.post('/badges', data),
+  update: (id: string, data: any) => api.patch(`/badges/${id}`, data),
+  delete: (id: string) => api.delete(`/badges/${id}`),
+  getStats: (params?: any) => api.get('/badges/stats', { params }),
 };
 
 // Staff API
@@ -103,16 +140,33 @@ export const submissionsAPI = {
 
 // Analytics API
 export const analyticsAPI = {
-  getProgressOverview: (params?: any) =>
-    api.get('/progress/analytics/overview', { params }),
-  getBadgeStats: (params?: any) => api.get('/badges/stats', { params }),
+  getProgressOverview: async (params?: any) => {
+    const response = await api.get('/progress/analytics/overview', { params });
+    return response.data;
+  },
+
+  getBadgeStats: async (params?: any) => {
+    const response = await api.get('/badges/stats', { params });
+    return response.data;
+  },
 };
 
 // Raffle API
 export const raffleAPI = {
-  getEligible: (year: number) => api.get(`/raffle/eligible/${year}`),
-  createDraw: (data: any) => api.post('/raffle/draw', data),
-  getHistory: () => api.get('/raffle/history'),
+  getEligible: async (year: number) => {
+    const response = await api.get(`/raffle/eligible/${year}`);
+    return response.data;
+  },
+
+  createDraw: async (data: any) => {
+    const response = await api.post('/raffle/draw', data);
+    return response.data;
+  },
+
+  getHistory: async () => {
+    const response = await api.get('/raffle/history');
+    return response.data;
+  },
 };
 
 export default api;

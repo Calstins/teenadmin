@@ -28,13 +28,13 @@ export default function DashboardPage() {
   });
 
   const { data: challenges, isLoading: challengesLoading } = useQuery({
-    queryKey: ['challenges', currentYear],
-    queryFn: () => challengesAPI.getAll({ year: currentYear, limit: 5 }),
+    queryKey: ['challenges-dashboard', currentYear],
+    queryFn: () => challengesAPI.getAll({ year: currentYear }),
   });
 
   const { data: teens, isLoading: teensLoading } = useQuery({
     queryKey: ['teens-stats'],
-    queryFn: () => teensAPI.getAll({ limit: 5 }),
+    queryFn: () => teensAPI.getAll({}),
   });
 
   const { data: submissions, isLoading: submissionsLoading } = useQuery({
@@ -51,6 +51,14 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
+  // Safely handle data with fallbacks
+  const analyticsData = Array.isArray(analytics?.data)
+    ? analytics.data
+    : [];
+  const challengesData = challenges?.data?.challenges || [];
+  const teensData = teens?.data || { teens: [], pagination: {} };
+  const submissionsData = submissions?.data || { submissions: [], pagination: {} };
+
   return (
     <div className="space-y-8">
       <div>
@@ -61,18 +69,21 @@ export default function DashboardPage() {
       </div>
 
       <StatsCards
-        analytics={analytics?.data}
-        teens={teens?.data}
-        submissions={submissions?.data}
+        analytics={analyticsData}
+        teens={teensData}
+        submissions={submissionsData}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
+            <CardDescription>
+              Monthly challenge performance for {currentYear}
+            </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
-            <Overview data={analytics?.data} />
+            <Overview data={analyticsData} />
           </CardContent>
         </Card>
         <Card className="col-span-3">
@@ -82,8 +93,8 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <RecentActivity
-              submissions={submissions?.data?.submissions}
-              challenges={challenges?.data?.challenges}
+              submissions={submissionsData.submissions}
+              challenges={challengesData}
             />
           </CardContent>
         </Card>
@@ -119,6 +130,7 @@ function DashboardSkeleton() {
         <Card className="col-span-4">
           <CardHeader>
             <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-48 mt-2" />
           </CardHeader>
           <CardContent>
             <Skeleton className="h-80 w-full" />
