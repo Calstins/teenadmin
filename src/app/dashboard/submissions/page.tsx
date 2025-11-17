@@ -111,7 +111,7 @@ export default function SubmissionsPage() {
     },
   });
 
-  const submissions = data?.data?.submissions || [];
+  const submissions = data?.submissions || [];
 
   console.log('📊 Submissions array:', submissions);
   console.log('📊 Submissions count:', submissions.length);

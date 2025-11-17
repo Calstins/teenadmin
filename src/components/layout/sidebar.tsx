@@ -55,6 +55,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     }
   };
 
+  // Helper function to check if a nav item is active
+  const isNavActive = (href: string) => {
+    if (href === '/dashboard') {
+      return pathname === href;
+    }
+    // Special handling for challenges route - mark as active for challenge detail pages
+    if (href === '/dashboard/challenges') {
+      return pathname.startsWith('/dashboard/challenges');
+    }
+    return pathname.startsWith(href);
+  };
+
   // Mobile sidebar (overlay)
   const mobileSidebar = (
     <>
@@ -97,7 +109,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           {/* Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {allNavigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = isNavActive(item.href);
               return (
                 <Link
                   key={item.name}
@@ -145,7 +157,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         <nav className="mt-8 flex-grow">
           <div className="px-2 space-y-1">
             {allNavigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = isNavActive(item.href);
               return (
                 <Link
                   key={item.name}

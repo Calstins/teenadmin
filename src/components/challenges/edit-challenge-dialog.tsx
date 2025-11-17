@@ -1,3 +1,4 @@
+// components/challenges/edit-challenge-dialog.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -29,7 +30,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
+// Badge data is REQUIRED for edit as well
 const editChallengeSchema = z.object({
     theme: z.string().min(3, 'Theme must be at least 3 characters'),
     instructions: z
@@ -37,7 +42,7 @@ const editChallengeSchema = z.object({
         .min(10, 'Instructions must be at least 10 characters'),
     goLiveDate: z.string(),
     closingDate: z.string(),
-    badge: z.object({
+    badgeData: z.object({
         name: z.string().min(1, 'Badge name is required'),
         description: z.string().min(1, 'Badge description is required'),
         imageUrl: z.string().url('Must be a valid URL'),
@@ -67,7 +72,7 @@ export function EditChallengeDialog({
             instructions: '',
             goLiveDate: '',
             closingDate: '',
-            badge: {
+            badgeData: {
                 name: '',
                 description: '',
                 imageUrl: '',
@@ -87,7 +92,7 @@ export function EditChallengeDialog({
                 instructions: challenge.instructions,
                 goLiveDate: goLiveDate.toISOString().slice(0, 16),
                 closingDate: closingDate.toISOString().slice(0, 16),
-                badge: challenge.badge
+                badgeData: challenge.badge
                     ? {
                         name: challenge.badge.name,
                         description: challenge.badge.description,
@@ -109,6 +114,7 @@ export function EditChallengeDialog({
             challengesAPI.update(challenge.id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['challenges'] });
+            queryClient.invalidateQueries({ queryKey: ['challenge', challenge.id] });
             toast.success('Challenge updated successfully!');
             onOpenChange(false);
         },
@@ -120,6 +126,14 @@ export function EditChallengeDialog({
     });
 
     const onSubmit: SubmitHandler<EditChallengeFormData> = (values) => {
+        // Validate badge image is present
+        if (!values.badgeData.imageUrl) {
+            toast.error('Badge Image Required', {
+                description: 'Please upload a badge image.',
+            });
+            return;
+        }
+
         updateMutation.mutate(values);
     };
 
@@ -137,6 +151,18 @@ export function EditChallengeDialog({
 
                 <ScrollArea className="flex-1 overflow-y-auto">
                     <div className="px-6 py-4">
+                        {/* Info Notice */}
+                        <Alert className="mb-6 border-blue-500 bg-blue-50 dark:bg-blue-950">
+                            <Info className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="text-blue-900 dark:text-blue-100">
+                                <strong>Editing {new Date(challenge.year, challenge.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Challenge</strong>
+                                <br />
+                                {challenge.badge
+                                    ? 'You can update the challenge details and badge information.'
+                                    : 'This challenge needs a badge. Please add badge information below.'}
+                            </AlertDescription>
+                        </Alert>
+
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                 {/* Basic Information */}
@@ -148,7 +174,7 @@ export function EditChallengeDialog({
                                         name="theme"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Theme</FormLabel>
+                                                <FormLabel>Theme *</FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         placeholder="e.g., Self-Discovery, Leadership"
@@ -165,7 +191,7 @@ export function EditChallengeDialog({
                                         name="instructions"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Instructions</FormLabel>
+                                                <FormLabel>Instructions *</FormLabel>
                                                 <FormControl>
                                                     <Textarea
                                                         placeholder="Describe what teens should expect this month..."
@@ -184,7 +210,7 @@ export function EditChallengeDialog({
                                             name="goLiveDate"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Go Live Date</FormLabel>
+                                                    <FormLabel>Go Live Date *</FormLabel>
                                                     <FormControl>
                                                         <Input type="datetime-local" {...field} />
                                                     </FormControl>
@@ -197,7 +223,7 @@ export function EditChallengeDialog({
                                             name="closingDate"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Closing Date</FormLabel>
+                                                    <FormLabel>Closing Date *</FormLabel>
                                                     <FormControl>
                                                         <Input type="datetime-local" {...field} />
                                                     </FormControl>
@@ -210,17 +236,24 @@ export function EditChallengeDialog({
 
                                 {/* Badge Details */}
                                 <div className="space-y-4">
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Monthly Badge</CardTitle>
+                                    <Card className="border-2 border-orange-200 dark:border-orange-900">
+                                        <CardHeader className="bg-orange-50 dark:bg-orange-950">
+                                            <CardTitle>
+                                                {challenge.badge ? 'Update Badge' : 'Add Badge (Required)'}
+                                            </CardTitle>
+                                            <p className="text-sm text-muted-foreground">
+                                                {challenge.badge
+                                                    ? 'Modify the badge details for this challenge.'
+                                                    : 'This challenge needs a badge before it can be published.'}
+                                            </p>
                                         </CardHeader>
-                                        <CardContent className="space-y-4">
+                                        <CardContent className="space-y-4 pt-6">
                                             <FormField
                                                 control={form.control}
-                                                name="badge.name"
+                                                name="badgeData.name"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Badge Name</FormLabel>
+                                                        <FormLabel>Badge Name *</FormLabel>
                                                         <FormControl>
                                                             <Input
                                                                 placeholder="e.g., Self-Discovery Champion"
@@ -234,10 +267,10 @@ export function EditChallengeDialog({
 
                                             <FormField
                                                 control={form.control}
-                                                name="badge.description"
+                                                name="badgeData.description"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Badge Description</FormLabel>
+                                                        <FormLabel>Badge Description *</FormLabel>
                                                         <FormControl>
                                                             <Textarea
                                                                 placeholder="Describe what this badge represents..."
@@ -251,18 +284,20 @@ export function EditChallengeDialog({
 
                                             <FormField
                                                 control={form.control}
-                                                name="badge.imageUrl"
+                                                name="badgeData.imageUrl"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Badge Image URL</FormLabel>
+                                                        <FormLabel>Badge Image *</FormLabel>
                                                         <FormControl>
-                                                            <Input
-                                                                placeholder="https://example.com/badge.png"
-                                                                {...field}
+                                                            <CloudinaryUploadWidget
+                                                                onUpload={(url) => field.onChange(url)}
+                                                                currentImageUrl={field.value}
+                                                                buttonText={challenge.badge ? "Change Badge Image" : "Upload Badge Image"}
+                                                                folder="teenshapers/badges"
                                                             />
                                                         </FormControl>
                                                         <FormDescription>
-                                                            Provide a URL to the badge image
+                                                            Upload a badge image (recommended: 512x512px)
                                                         </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
@@ -271,15 +306,16 @@ export function EditChallengeDialog({
 
                                             <FormField
                                                 control={form.control}
-                                                name="badge.price"
+                                                name="badgeData.price"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Badge Price (₦)</FormLabel>
+                                                        <FormLabel>Badge Price (₦) *</FormLabel>
                                                         <FormControl>
                                                             <Input
                                                                 type="number"
                                                                 step="0.01"
-                                                                placeholder="9.99"
+                                                                min="0"
+                                                                placeholder="500.00"
                                                                 {...field}
                                                                 onChange={(e) =>
                                                                     field.onChange(Number(e.target.value))
@@ -309,7 +345,7 @@ export function EditChallengeDialog({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={updateMutation.isPending}
+                            disabled={updateMutation.isPending || !form.watch('badgeData.imageUrl')}
                             onClick={form.handleSubmit(onSubmit)}
                         >
                             {updateMutation.isPending ? 'Updating...' : 'Update Challenge'}

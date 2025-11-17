@@ -1,7 +1,7 @@
+// components/challenges/create-challenge-dialog.tsx
 'use client';
 
-import { useState } from 'react';
-import { useForm, useFieldArray, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,61 +24,35 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info, AlertTriangle } from 'lucide-react';
 
-const taskSchema = z.object({
-  tabName: z.enum([
-    'Bible Study',
-    'Book of the Month',
-    'Activities',
-    'Projects',
-  ]),
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  taskType: z.enum([
-    'TEXT',
-    'IMAGE',
-    'VIDEO',
-    'QUIZ',
-    'FORM',
-    'PICK_ONE',
-    'CHECKLIST',
-  ]),
-  dueDate: z.string().optional(),
-  isRequired: z.boolean(),
-  completionRule: z.string(),
-  maxScore: z.number().min(1).max(100),
-});
-
-const challengeSchema = z.object({
-  year: z.number().min(2020).max(2030),
-  month: z.number().min(1).max(12),
+// UPDATED: Badge data is now REQUIRED, not optional
+const createChallengeSchema = z.object({
+  year: z.number().min(2024, 'Year must be 2024 or later'),
+  month: z.number().min(1, 'Invalid month').max(12, 'Invalid month'),
   theme: z.string().min(3, 'Theme must be at least 3 characters'),
   instructions: z
     .string()
     .min(10, 'Instructions must be at least 10 characters'),
   goLiveDate: z.string(),
   closingDate: z.string(),
-  badge: z.object({
+  // CHANGED: Badge is now REQUIRED
+  badgeData: z.object({
     name: z.string().min(1, 'Badge name is required'),
     description: z.string().min(1, 'Badge description is required'),
     imageUrl: z.string().url('Must be a valid URL'),
     price: z.number().min(0, 'Price must be positive'),
-  }),
-  tasks: z.array(taskSchema).min(1, 'At least one task is required'),
+  }), // Removed .optional()
 });
 
-type ChallengeFormData = z.infer<typeof challengeSchema>;
+type CreateChallengeFormData = z.infer<typeof createChallengeSchema>;
 
 interface CreateChallengeDialogProps {
   open: boolean;
@@ -89,11 +63,10 @@ export function CreateChallengeDialog({
   open,
   onOpenChange,
 }: CreateChallengeDialogProps) {
-  const [currentStep, setCurrentStep] = useState(1);
   const queryClient = useQueryClient();
 
-  const form = useForm<ChallengeFormData>({
-    resolver: zodResolver(challengeSchema),
+  const form = useForm<CreateChallengeFormData>({
+    resolver: zodResolver(createChallengeSchema),
     defaultValues: {
       year: new Date().getFullYear(),
       month: new Date().getMonth() + 1,
@@ -101,287 +74,103 @@ export function CreateChallengeDialog({
       instructions: '',
       goLiveDate: '',
       closingDate: '',
-      badge: {
+      badgeData: {
         name: '',
         description: '',
         imageUrl: '',
         price: 0,
       },
-      tasks: [
-        {
-          tabName: 'Activities' as const,
-          title: '',
-          description: '',
-          taskType: 'TEXT' as const,
-          isRequired: false,
-          completionRule: 'Complete this task',
-          maxScore: 100,
-        },
-      ],
     },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'tasks',
   });
 
   const createMutation = useMutation({
     mutationFn: challengesAPI.create,
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
-      toast.success('Challenge created successfully!');
+      toast.success('Challenge and badge created successfully!', {
+        description: 'All active teens will be notified when you publish.',
+      });
       onOpenChange(false);
       form.reset();
-      setCurrentStep(1);
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || 'Failed to create challenge'
-      );
+      const message = error.response?.data?.message || 'Failed to create challenge';
+
+      // Show specific error messages
+      if (message.includes('already exists')) {
+        toast.error('Challenge Already Exists', {
+          description: message,
+        });
+      } else if (message.includes('Badge information is required')) {
+        toast.error('Badge Required', {
+          description: 'Each challenge must have exactly one badge.',
+        });
+      } else {
+        toast.error('Error', {
+          description: message,
+        });
+      }
     },
   });
 
-  const onSubmit: SubmitHandler<ChallengeFormData> = (values) => {
+  const onSubmit: SubmitHandler<CreateChallengeFormData> = (values) => {
+    // Validate that badge image is uploaded
+    if (!values.badgeData.imageUrl) {
+      toast.error('Badge Image Required', {
+        description: 'Please upload a badge image before creating the challenge.',
+      });
+      return;
+    }
+
     createMutation.mutate(values);
   };
 
-  const nextStep = async () => {
-    let fieldsToValidate: (keyof ChallengeFormData)[] = [];
-
-    if (currentStep === 1) {
-      fieldsToValidate = [
-        'year',
-        'month',
-        'theme',
-        'instructions',
-        'goLiveDate',
-        'closingDate',
-      ];
-    } else if (currentStep === 2) {
-      fieldsToValidate = ['badge'];
-    }
-
-    const isValid = await form.trigger(fieldsToValidate);
-    if (isValid) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep(currentStep - 1);
+  // Helper to get month name
+  const getMonthName = (monthNum: number) => {
+    return new Date(2024, monthNum - 1).toLocaleDateString('en-US', {
+      month: 'long',
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
           <DialogTitle>Create New Challenge</DialogTitle>
           <DialogDescription>
-            Step {currentStep} of 3:{' '}
-            {currentStep === 1
-              ? 'Basic Information'
-              : currentStep === 2
-              ? 'Badge Details'
-              : 'Tasks'}
+            Create a new monthly challenge with badge. Each month can only have one challenge.
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {currentStep === 1 && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="year"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Year</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(Number(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="month"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Month</FormLabel>
-                        <Select
-                          onValueChange={(value) =>
-                            field.onChange(Number(value))
-                          }
-                          defaultValue={field.value.toString()}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select month" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {Array.from({ length: 12 }, (_, i) => (
-                              <SelectItem
-                                key={i + 1}
-                                value={(i + 1).toString()}
-                              >
-                                {new Date(0, i).toLocaleDateString('en-US', {
-                                  month: 'long',
-                                })}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-6 py-4">
+            {/* Important Notice */}
+            <Alert className="mb-6 border-blue-500 bg-blue-50 dark:bg-blue-950">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-900 dark:text-blue-100">
+                <strong>Important:</strong> Each challenge requires a badge. Only one challenge
+                is allowed per month. If a challenge already exists for the selected month,
+                you'll need to edit that challenge or choose a different month.
+              </AlertDescription>
+            </Alert>
 
-                <FormField
-                  control={form.control}
-                  name="theme"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Theme</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Self-Discovery, Leadership"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Basic Information</h3>
 
-                <FormField
-                  control={form.control}
-                  name="instructions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Instructions</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe what teens should expect this month..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="goLiveDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Go Live Date</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="closingDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Closing Date</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Monthly Badge</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="badge.name"
+                      name="year"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Badge Name</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="e.g., Self-Discovery Champion"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="badge.description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Badge Description</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe what this badge represents..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="badge.imageUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Badge Image URL</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="https://example.com/badge.png"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="badge.price"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Badge Price (₦)</FormLabel>
+                          <FormLabel>Year *</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
-                              step="0.01"
-                              placeholder="9.99"
+                              min="2024"
                               {...field}
                               onChange={(e) =>
                                 field.onChange(Number(e.target.value))
@@ -392,198 +181,241 @@ export function CreateChallengeDialog({
                         </FormItem>
                       )}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium">Tasks</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      append({
-                        tabName: 'Activities' as const,
-                        title: '',
-                        description: '',
-                        taskType: 'TEXT' as const,
-                        isRequired: false,
-                        completionRule: 'Complete this task',
-                        maxScore: 100,
-                      })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Task
-                  </Button>
-                </div>
-
-                <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                  {fields.map((field, index) => (
-                    <Card key={field.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-center">
-                          <CardTitle className="text-base">
-                            Task {index + 1}
-                          </CardTitle>
-                          {fields.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => remove(index)}
+                    <FormField
+                      control={form.control}
+                      name="month"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Month *</FormLabel>
+                          <FormControl>
+                            <select
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(Number(e.target.value))
+                              }
+                              className="w-full px-3 py-2 border rounded-md bg-background"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <FormField
-                            control={form.control}
-                            name={`tasks.${index}.tabName`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Tab</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="Bible Study">
-                                      Bible Study
-                                    </SelectItem>
-                                    <SelectItem value="Book of the Month">
-                                      Book of the Month
-                                    </SelectItem>
-                                    <SelectItem value="Activities">
-                                      Activities
-                                    </SelectItem>
-                                    <SelectItem value="Projects">
-                                      Projects
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                                (m) => (
+                                  <option key={m} value={m}>
+                                    {new Date(2024, m - 1).toLocaleDateString(
+                                      'en-US',
+                                      { month: 'long' }
+                                    )}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                          </FormControl>
+                          <FormDescription>
+                            Selected: {getMonthName(form.watch('month'))} {form.watch('year')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="theme"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Theme *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Self-Discovery, Leadership, Faith Foundations"
+                            {...field}
                           />
-                          <FormField
-                            control={form.control}
-                            name={`tasks.${index}.taskType`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Type</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="TEXT">Text</SelectItem>
-                                    <SelectItem value="IMAGE">Image</SelectItem>
-                                    <SelectItem value="VIDEO">Video</SelectItem>
-                                    <SelectItem value="QUIZ">Quiz</SelectItem>
-                                    <SelectItem value="FORM">Form</SelectItem>
-                                    <SelectItem value="PICK_ONE">
-                                      Pick One
-                                    </SelectItem>
-                                    <SelectItem value="CHECKLIST">
-                                      Checklist
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instructions *</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe what teens should expect this month..."
+                            className="min-h-[120px]"
+                            {...field}
                           />
-                        </div>
+                        </FormControl>
+                        <FormDescription>
+                          Provide clear instructions for teens about what this challenge involves.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                        <FormField
-                          control={form.control}
-                          name={`tasks.${index}.title`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Title</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Task title..." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="goLiveDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Go Live Date *</FormLabel>
+                          <FormControl>
+                            <Input type="datetime-local" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            When this challenge becomes available to teens
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="closingDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Closing Date *</FormLabel>
+                          <FormControl>
+                            <Input type="datetime-local" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            When this challenge ends
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
 
-                        <FormField
-                          control={form.control}
-                          name={`tasks.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Description</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Task instructions..."
-                                  className="min-h-[80px]"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
+                {/* Badge Details - NOW REQUIRED */}
+                <div className="space-y-4">
+                  <Card className="border-2 border-orange-200 dark:border-orange-900">
+                    <CardHeader className="bg-orange-50 dark:bg-orange-950">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-orange-600" />
+                          Monthly Badge (Required)
+                        </CardTitle>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Each challenge must have exactly one badge. Teens purchase this badge
+                        to be eligible for the annual raffle draw.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-6">
+                      <FormField
+                        control={form.control}
+                        name="badgeData.name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Badge Name *</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g., Faith Foundations Champion"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-            <DialogFooter>
-              <div className="flex justify-between w-full">
-                <div>
-                  {currentStep > 1 && (
-                    <Button type="button" variant="outline" onClick={prevStep}>
-                      Previous
-                    </Button>
-                  )}
+                      <FormField
+                        control={form.control}
+                        name="badgeData.description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Badge Description *</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Describe what this badge represents..."
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="badgeData.imageUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Badge Image *</FormLabel>
+                            <FormControl>
+                              <CloudinaryUploadWidget
+                                onUpload={(url) => field.onChange(url)}
+                                currentImageUrl={field.value}
+                                buttonText="Upload Badge Image"
+                                folder="teenshapers/badges"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Upload a badge image (recommended: 512x512px, PNG format with transparency)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="badgeData.price"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Badge Price (₦) *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="500.00"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(Number(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Amount teens will pay to purchase this badge
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    Cancel
-                  </Button>
-                  {currentStep < 3 ? (
-                    <Button type="button" onClick={nextStep}>
-                      Next
-                    </Button>
-                  ) : (
-                    <Button type="submit" disabled={createMutation.isPending}>
-                      {createMutation.isPending
-                        ? 'Creating...'
-                        : 'Create Challenge'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </DialogFooter>
-          </form>
-        </Form>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
+          <div className="flex justify-between w-full">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+                form.reset();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={createMutation.isPending || !form.watch('badgeData.imageUrl')}
+              onClick={form.handleSubmit(onSubmit)}
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create Challenge & Badge'}
+            </Button>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -130,7 +130,7 @@ export default function StaffPage() {
     },
   });
 
-  const staff: StaffMember[] = data?.data?.staff || [];
+  const staff: StaffMember[] = data?.staff || [];
 
   // Pagination
   const totalPages = Math.ceil(staff.length / itemsPerPage);

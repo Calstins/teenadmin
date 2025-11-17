@@ -1,3 +1,4 @@
+// teenadmin/src/app/dashboard/badges/page.tsx - UPDATED VERSION
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,6 +28,7 @@ import {
   Award,
   DollarSign,
   Users,
+  AlertCircle,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -67,6 +69,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface BadgeData {
   id: string;
@@ -112,10 +116,15 @@ export default function BadgeManagementPage() {
 
   // Fetch badges
   const { data: badgesData, isLoading: badgesLoading } = useQuery({
-    queryKey: ['admin-badges', selectedYear, searchTerm],
-    queryFn: () => badgesAPI.getAll({
-      year: selectedYear, search: searchTerm, isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
-    }),
+    queryKey: ['admin-badges', selectedYear, searchTerm, statusFilter],
+    queryFn: async () => {
+      const response = await badgesAPI.getAll({
+        year: selectedYear,
+        search: searchTerm,
+        isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
+      });
+      return response;
+    },
   });
 
   // Fetch challenges for dropdown
@@ -124,8 +133,11 @@ export default function BadgeManagementPage() {
     queryFn: () => challengesAPI.getAll({ year: selectedYear }),
   });
 
-  const badges: BadgeData[] = badgesData?.data?.data || [];
+  const badges: BadgeData[] = badgesData?.data || [];
   const challenges: ChallengeData[] = challengesData?.data?.challenges || [];
+
+  // IMPORTANT: Filter challenges to only show those WITHOUT badges
+  const availableChallenges = challenges.filter((c) => !c.badge);
 
   // Pagination
   const totalPages = Math.ceil(badges.length / itemsPerPage);
@@ -154,11 +166,20 @@ export default function BadgeManagementPage() {
     mutationFn: (data: any) => badgesAPI.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-badges'] });
+      queryClient.invalidateQueries({ queryKey: ['challenges-for-badges'] });
       toast.success('Badge created successfully!');
       setCreateDialogOpen(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create badge');
+      const message = error.response?.data?.message || 'Failed to create badge';
+
+      if (message.includes('already exists')) {
+        toast.error('Badge Already Exists', {
+          description: message,
+        });
+      } else {
+        toast.error('Error', { description: message });
+      }
     },
   });
 
@@ -182,12 +203,16 @@ export default function BadgeManagementPage() {
     mutationFn: (badgeId: string) => badgesAPI.delete(badgeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-badges'] });
+      queryClient.invalidateQueries({ queryKey: ['challenges-for-badges'] });
       toast.success('Badge deleted successfully!');
       setDeleteDialogOpen(false);
       setSelectedBadge(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete badge');
+      const message = error.response?.data?.message || 'Failed to delete badge';
+      toast.error('Delete Failed', {
+        description: message,
+      });
     },
   });
 
@@ -214,7 +239,7 @@ export default function BadgeManagementPage() {
             Badge Management
           </h2>
           <p className="text-muted-foreground">
-            Create and manage challenge badges
+            Create and manage challenge badges (one badge per challenge)
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -235,13 +260,27 @@ export default function BadgeManagementPage() {
             Board
           </Button>
           {user?.role === 'ADMIN' && (
-            <Button onClick={() => setCreateDialogOpen(true)}>
+            <Button
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={availableChallenges.length === 0}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create Badge
             </Button>
           )}
         </div>
       </div>
+
+      {/* Show warning if no available challenges */}
+      {availableChallenges.length === 0 && (
+        <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-900 dark:text-yellow-100">
+            <strong>No Available Challenges:</strong> All challenges for {selectedYear} already have badges.
+            Create a new challenge first, or select a different year.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -441,7 +480,7 @@ export default function BadgeManagementPage() {
           )}
         </>
       ) : (
-        // BOARD VIEW
+        // BOARD VIEW (Similar structure, keeping it concise)
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {paginatedBadges.map((badge) => (
@@ -531,7 +570,7 @@ export default function BadgeManagementPage() {
             ))}
           </div>
 
-          {/* Pagination for Board View */}
+          {/* Board View Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
@@ -591,16 +630,18 @@ export default function BadgeManagementPage() {
             No badges found
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            Get started by creating a new badge.
+            {availableChallenges.length > 0
+              ? 'Get started by creating a new badge.'
+              : 'Create challenges first before adding badges.'}
           </p>
         </div>
       )}
 
-      {/* Create Badge Dialog */}
+      {/* Create Badge Dialog - WITH FILTERED CHALLENGES */}
       <CreateBadgeDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        challenges={challenges}
+        challenges={availableChallenges}  // ONLY PASS CHALLENGES WITHOUT BADGES
         onSubmit={(data) => createMutation.mutate(data)}
         isLoading={createMutation.isPending}
       />
@@ -634,7 +675,7 @@ export default function BadgeManagementPage() {
               {selectedBadge?._count && selectedBadge._count.teenBadges > 0 && (
                 <span className="block mt-2 text-red-600 font-medium">
                   Warning: This badge has {selectedBadge._count.teenBadges}{' '}
-                  purchase(s).
+                  purchase(s). Deleting it will affect teen progress and raffle eligibility.
                 </span>
               )}
             </AlertDialogDescription>
@@ -657,7 +698,7 @@ export default function BadgeManagementPage() {
   );
 }
 
-// Create Badge Dialog Component
+// Create Badge Dialog Component WITH CLOUDINARY
 interface CreateBadgeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -683,7 +724,16 @@ function CreateBadgeDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+
+    if (!formData.imageUrl) {
+      toast.error('Badge image is required');
+      return;
+    }
+
+    onSubmit({
+      ...formData,
+      price: parseFloat(formData.price),
+    });
   };
 
   const handleChange = (field: string, value: string) => {
@@ -696,33 +746,45 @@ function CreateBadgeDialog({
         <DialogHeader>
           <DialogTitle>Create New Badge</DialogTitle>
           <DialogDescription>
-            Create a badge for a monthly challenge
+            Create a badge for a challenge (one badge per challenge)
           </DialogDescription>
         </DialogHeader>
+
+        {challenges.length === 0 && (
+          <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-900 dark:text-yellow-100">
+              All challenges for this year already have badges. Create a new challenge first.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="challengeId">Challenge</Label>
+            <Label htmlFor="challengeId">Challenge *</Label>
             <Select
               value={formData.challengeId}
               onValueChange={(value) => handleChange('challengeId', value)}
+              disabled={challenges.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a challenge" />
+                <SelectValue placeholder="Select a challenge without a badge" />
               </SelectTrigger>
               <SelectContent>
-                {challenges
-                  .filter((c) => !c.badge) // Only show challenges without badges
-                  .map((challenge) => (
-                    <SelectItem key={challenge.id} value={challenge.id}>
-                      {challenge.theme} ({challenge.year}/{challenge.month})
-                    </SelectItem>
-                  ))}
+                {challenges.map((challenge) => (
+                  <SelectItem key={challenge.id} value={challenge.id}>
+                    {challenge.theme} ({challenge.year}/{challenge.month})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Only challenges without badges are shown
+            </p>
           </div>
 
           <div>
-            <Label htmlFor="name">Badge Name</Label>
+            <Label htmlFor="name">Badge Name *</Label>
             <Input
               id="name"
               value={formData.name}
@@ -733,7 +795,7 @@ function CreateBadgeDialog({
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Description *</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -745,18 +807,20 @@ function CreateBadgeDialog({
           </div>
 
           <div>
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              value={formData.imageUrl}
-              onChange={(e) => handleChange('imageUrl', e.target.value)}
-              placeholder="https://example.com/badge.png"
-              required
+            <Label htmlFor="imageUrl">Badge Image *</Label>
+            <CloudinaryUploadWidget
+              onUpload={(url) => handleChange('imageUrl', url)}
+              currentImageUrl={formData.imageUrl}
+              buttonText="Upload Badge Image"
+              folder="teenshapers/badges"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Required: Upload a badge image (512x512px recommended)
+            </p>
           </div>
 
           <div>
-            <Label htmlFor="price">Price (₦)</Label>
+            <Label htmlFor="price">Price (₦) *</Label>
             <Input
               id="price"
               type="number"
@@ -764,7 +828,7 @@ function CreateBadgeDialog({
               min="0"
               value={formData.price}
               onChange={(e) => handleChange('price', e.target.value)}
-              placeholder="5.00"
+              placeholder="500.00"
               required
             />
           </div>
@@ -778,7 +842,10 @@ function CreateBadgeDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading || !formData.imageUrl || challenges.length === 0}
+            >
               {isLoading ? 'Creating...' : 'Create Badge'}
             </Button>
           </DialogFooter>
@@ -788,7 +855,7 @@ function CreateBadgeDialog({
   );
 }
 
-// Edit Badge Dialog Component
+// Edit Badge Dialog Component WITH CLOUDINARY
 interface EditBadgeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -827,7 +894,16 @@ function EditBadgeDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+
+    if (!formData.imageUrl) {
+      toast.error('Badge image is required');
+      return;
+    }
+
+    onSubmit({
+      ...formData,
+      price: parseFloat(formData.price),
+    });
   };
 
   const handleChange = (field: string, value: string | boolean) => {
@@ -847,7 +923,7 @@ function EditBadgeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="edit-name">Badge Name</Label>
+            <Label htmlFor="edit-name">Badge Name *</Label>
             <Input
               id="edit-name"
               value={formData.name}
@@ -857,7 +933,7 @@ function EditBadgeDialog({
           </div>
 
           <div>
-            <Label htmlFor="edit-description">Description</Label>
+            <Label htmlFor="edit-description">Description *</Label>
             <Textarea
               id="edit-description"
               value={formData.description}
@@ -868,17 +944,17 @@ function EditBadgeDialog({
           </div>
 
           <div>
-            <Label htmlFor="edit-imageUrl">Image URL</Label>
-            <Input
-              id="edit-imageUrl"
-              value={formData.imageUrl}
-              onChange={(e) => handleChange('imageUrl', e.target.value)}
-              required
+            <Label htmlFor="edit-imageUrl">Badge Image *</Label>
+            <CloudinaryUploadWidget
+              onUpload={(url) => handleChange('imageUrl', url)}
+              currentImageUrl={formData.imageUrl}
+              buttonText="Change Badge Image"
+              folder="teenshapers/badges"
             />
           </div>
 
           <div>
-            <Label htmlFor="edit-price">Price (₦)</Label>
+            <Label htmlFor="edit-price">Price (₦) *</Label>
             <Input
               id="edit-price"
               type="number"
@@ -910,7 +986,7 @@ function EditBadgeDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !formData.imageUrl}>
               {isLoading ? 'Updating...' : 'Update Badge'}
             </Button>
           </DialogFooter>

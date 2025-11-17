@@ -1,3 +1,4 @@
+// teenadmin/src/app/dashboard/challenges/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -28,12 +29,14 @@ import {
   Trophy,
   Users,
   DollarSign,
+  ListTodo,
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { CreateChallengeDialog } from '@/components/challenges/create-challenge-dialog';
 import { ViewChallengeDialog } from '@/components/challenges/view-challenge-dialog';
 import { EditChallengeDialog } from '@/components/challenges/edit-challenge-dialog';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import {
   AlertDialog,
@@ -99,6 +102,7 @@ export default function ChallengesPage() {
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['challenges', selectedYear, searchTerm, statusFilter],
@@ -161,8 +165,7 @@ export default function ChallengesPage() {
   };
 
   const handleView = (challenge: Challenge) => {
-    setSelectedChallenge(challenge);
-    setViewDialogOpen(true);
+    router.push(`/dashboard/challenges/${challenge.id}`);
   };
 
   const handleEdit = (challenge: Challenge) => {
@@ -348,30 +351,40 @@ export default function ChallengesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-1">
+                        {/* View Details & Manage Tasks - goes to same page */}
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleView(challenge)}
+                          title="View Details & Manage Tasks"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+
+                        {/* Edit Challenge */}
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(challenge)}
+                          title="Edit Challenge"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+
+                        {/* Publish button */}
                         {user?.role === 'ADMIN' && !challenge.isPublished && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => publishMutation.mutate(challenge.id)}
                             disabled={publishMutation.isPending}
+                            title="Publish Challenge"
                           >
                             <CheckCircle className="h-4 w-4 text-green-600" />
                           </Button>
                         )}
+
+                        {/* Delete button */}
                         {user?.role === 'ADMIN' && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -379,6 +392,7 @@ export default function ChallengesPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-600 hover:text-red-700"
+                                title="Delete Challenge"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -523,6 +537,7 @@ export default function ChallengesPage() {
                     </div>
 
                     <div className="flex space-x-2 pt-2">
+                      {/* View Details & Manage Tasks */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -530,8 +545,10 @@ export default function ChallengesPage() {
                         onClick={() => handleView(challenge)}
                       >
                         <Eye className="mr-1 h-3 w-3" />
-                        View
+                        View & Manage
                       </Button>
+
+                      {/* Edit */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -540,6 +557,7 @@ export default function ChallengesPage() {
                         <Edit className="h-3 w-3" />
                       </Button>
 
+                      {/* Publish */}
                       {user?.role === 'ADMIN' && !challenge.isPublished && (
                         <Button
                           variant="outline"
@@ -551,6 +569,7 @@ export default function ChallengesPage() {
                         </Button>
                       )}
 
+                      {/* Delete */}
                       {user?.role === 'ADMIN' && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

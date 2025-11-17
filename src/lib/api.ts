@@ -11,7 +11,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor to add auth token
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token');
@@ -25,11 +25,10 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - ONLY logout on auth-specific 401s
+// Response interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Don't auto-logout on login page or during login attempts
     if (
       typeof window !== 'undefined' &&
       window.location.pathname === '/login'
@@ -37,7 +36,6 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Only auto-logout for authentication-related 401s, not all 401s
     if (
       error.response?.status === 401 &&
       (error.response?.data?.message?.includes('Invalid token') ||
@@ -78,7 +76,6 @@ export const challengesAPI = {
     return response.data;
   },
 
-  // ADD THIS METHOD
   getById: async (id: string) => {
     const response = await api.get(`/admin/challenges/${id}`);
     return response.data;
@@ -89,7 +86,6 @@ export const challengesAPI = {
     return response.data;
   },
 
-  // ADD THIS METHOD
   update: async (id: string, data: any) => {
     const response = await api.patch(`/admin/challenges/${id}`, data);
     return response.data;
@@ -100,42 +96,132 @@ export const challengesAPI = {
     return response.data;
   },
 
+  toggle: async (id: string, field: 'isPublished' | 'isActive') => {
+    const response = await api.patch(`/admin/challenges/${id}/toggle`, {
+      field,
+    });
+    return response.data;
+  },
+
   delete: async (id: string) => {
     const response = await api.delete(`/admin/challenges/${id}`);
     return response.data;
   },
 };
 
-// Badges API
-export const badgesAPI = {
-  getAll: (params?: any) => api.get('/badges', { params }),
-  getById: (id: string) => api.get(`/badges/${id}`),
-  create: (data: any) => api.post('/badges', data),
-  update: (id: string, data: any) => api.patch(`/badges/${id}`, data),
-  delete: (id: string) => api.delete(`/badges/${id}`),
-  getStats: (params?: any) => api.get('/badges/stats', { params }),
-};
+// Tasks API
+export const tasksAPI = {
+  getByChallengeId: async (challengeId: string) => {
+    const response = await api.get(`/admin/tasks/challenge/${challengeId}`);
+    return response.data;
+  },
 
-// Staff API
-export const staffAPI = {
-  getAll: (params?: any) => api.get('/admin/staff', { params }),
-  create: (data: any) => api.post('/admin/staff', data),
-  update: (id: string, data: any) => api.patch(`/admin/staff/${id}`, data),
-  delete: (id: string) => api.delete(`/admin/staff/${id}`),
-};
+  getById: async (taskId: string) => {
+    const response = await api.get(`/admin/tasks/${taskId}`);
+    return response.data;
+  },
 
-// Teens API
-export const teensAPI = {
-  getAll: (params?: any) => api.get('/teens', { params }),
-  getById: (id: string) => api.get(`/teens/${id}`),
+  create: async (data: any) => {
+    const response = await api.post('/admin/tasks', data);
+    return response.data;
+  },
+
+  update: async (taskId: string, data: any) => {
+    const response = await api.put(`/admin/tasks/${taskId}`, data);
+    return response.data;
+  },
+
+  delete: async (taskId: string) => {
+    const response = await api.delete(`/admin/tasks/${taskId}`);
+    return response.data;
+  },
 };
 
 // Submissions API
 export const submissionsAPI = {
-  getReviewQueue: (params?: any) =>
-    api.get('/submissions/review-queue', { params }),
-  review: (id: string, data: any) =>
-    api.patch(`/submissions/${id}/review`, data),
+  getReviewQueue: async (params?: any) => {
+    const response = await api.get('/admin/submissions/review-queue', {
+      params,
+    });
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/submissions/${id}`);
+    return response.data;
+  },
+
+  review: async (id: string, data: any) => {
+    const response = await api.patch(`/admin/submissions/${id}/review`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/admin/submissions/${id}`);
+    return response.data;
+  },
+};
+
+// Badges API
+export const badgesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/admin/badges', { params });
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/badges/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/admin/badges', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.patch(`/admin/badges/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/admin/badges/${id}`);
+    return response.data;
+  },
+
+  getStats: async (params?: any) => {
+    const response = await api.get('/admin/badges/stats', { params });
+    return response.data;
+  },
+};
+
+// Teens API
+export const teensAPI = {
+  getAll: (params?: any) => api.get('/admin/teens', { params }),
+  getById: (id: string) => api.get(`/admin/teens/${id}`),
+};
+
+// Staff API
+export const staffAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/admin/staff', { params });
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/admin/staff', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.patch(`/admin/staff/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await api.delete(`/admin/staff/${id}`);
+    return response.data;
+  },
 };
 
 // Analytics API
@@ -146,7 +232,7 @@ export const analyticsAPI = {
   },
 
   getBadgeStats: async (params?: any) => {
-    const response = await api.get('/badges/stats', { params });
+    const response = await api.get('/admin/badges/stats', { params });
     return response.data;
   },
 };
