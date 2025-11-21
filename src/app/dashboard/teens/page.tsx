@@ -50,6 +50,8 @@ interface Teen {
     badges: number;
     progress: number;
   };
+  isEmailVerified?: boolean;
+  needsProfileSetup?: boolean;
 }
 
 export default function TeensPage() {

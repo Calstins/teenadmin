@@ -70,6 +70,90 @@ const TAB_OPTIONS = [
     'Other',
 ];
 
+/**
+ * Generate unique ID for task options
+ */
+function generateUniqueId(prefix: string, index: number): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`;
+}
+
+/**
+ * Process task options to add IDs where missing
+ */
+function processTaskOptions(taskType: string, options: any): any {
+    if (!options) return null;
+
+    let processedOptions = { ...options };
+
+    switch (taskType) {
+        case 'CHECKLIST':
+            if (options.items && Array.isArray(options.items)) {
+                processedOptions.items = options.items.map((item: any, index: number) => {
+                    // Handle both string and object formats
+                    if (typeof item === 'string') {
+                        return {
+                            id: generateUniqueId('item', index),
+                            text: item,
+                        };
+                    }
+                    return {
+                        ...item,
+                        id: item.id || generateUniqueId('item', index),
+                        text: item.text || item.title || item.name || `Item ${index + 1}`,
+                    };
+                });
+            }
+            break;
+
+        case 'QUIZ':
+            if (options.questions && Array.isArray(options.questions)) {
+                processedOptions.questions = options.questions.map((question: any, index: number) => ({
+                    ...question,
+                    id: question.id || generateUniqueId('question', index),
+                    text: question.text || question.question || '',
+                    options: question.options || [],
+                }));
+            }
+            break;
+
+        case 'FORM':
+            if (options.fields && Array.isArray(options.fields)) {
+                processedOptions.fields = options.fields.map((field: any, index: number) => ({
+                    ...field,
+                    id: field.id || generateUniqueId('field', index),
+                    label: field.label || field.name || `Field ${index + 1}`,
+                    type: field.type || 'text',
+                    required: field.required !== undefined ? field.required : false,
+                }));
+            }
+            break;
+
+        case 'PICK_ONE':
+            if (options.options && Array.isArray(options.options)) {
+                processedOptions.options = options.options.map((option: any, index: number) => {
+                    if (typeof option === 'string') {
+                        return {
+                            id: generateUniqueId('option', index),
+                            title: option,
+                            description: '',
+                        };
+                    }
+                    return {
+                        ...option,
+                        id: option.id || generateUniqueId('option', index),
+                        title: option.title || option.text || option.name || `Option ${index + 1}`,
+                    };
+                });
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    return processedOptions;
+}
+
 export function CreateTaskDialog({
     open,
     onOpenChange,
@@ -112,11 +196,20 @@ export function CreateTaskDialog({
     });
 
     const onSubmit: SubmitHandler<CreateTaskFormData> = (values) => {
+        // Process options to add IDs
+        const processedOptions = processTaskOptions(values.taskType, taskOptions);
+
         const submitData = {
             ...values,
-            options: taskOptions,
+            options: processedOptions,
             dueDate: values.dueDate || undefined,
         };
+
+        console.log('📤 Submitting task with processed options:', {
+            taskType: values.taskType,
+            originalOptions: taskOptions,
+            processedOptions,
+        });
 
         createMutation.mutate(submitData);
     };
@@ -127,7 +220,7 @@ export function CreateTaskDialog({
                 <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
                     <DialogTitle>Create New Task</DialogTitle>
                     <DialogDescription>
-                        Add a new task to this challenge
+                        Add a new task to this challenge. IDs will be automatically generated for task options.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -220,6 +313,33 @@ export function CreateTaskDialog({
                                         options={taskOptions}
                                         onChange={setTaskOptions}
                                     />
+
+                                    {/* Show info about ID generation */}
+                                    {['CHECKLIST', 'QUIZ', 'FORM', 'PICK_ONE'].includes(taskType) && (
+                                        <div className="text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+                                            <p className="flex items-center gap-2">
+                                                <svg
+                                                    className="w-4 h-4"
+                                                    fill="none"
+                                                    strokeWidth="2"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                    />
+                                                </svg>
+                                                <span className="font-medium">Unique IDs will be automatically generated</span>
+                                            </p>
+                                            <p className="mt-1 ml-6 text-xs">
+                                                Each {taskType === 'CHECKLIST' ? 'checklist item' :
+                                                    taskType === 'QUIZ' ? 'quiz question' :
+                                                        taskType === 'FORM' ? 'form field' : 'option'} will receive a unique identifier for proper tracking.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Additional Settings */}
