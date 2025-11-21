@@ -91,7 +91,7 @@ export function TasksList({ tasks, challengeId }: TasksListProps) {
             <div className="text-center py-8 border rounded-lg bg-muted/20">
                 <p className="text-muted-foreground">No tasks yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Click "Add Task" to create your first task
+                    Click &quot;Add Task&quot; to create your first task
                 </p>
             </div>
         );
@@ -175,7 +175,7 @@ export function TasksList({ tasks, challengeId }: TasksListProps) {
                                                         <AlertDialogHeader>
                                                             <AlertDialogTitle>Delete Task</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                Are you sure you want to delete "{task.title}"? This
+                                                                Are you sure you want to delete &quot;{task.title}&quot;? This
                                                                 action cannot be undone and will also delete all
                                                                 submissions for this task.
                                                             </AlertDialogDescription>
