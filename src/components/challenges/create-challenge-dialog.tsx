@@ -220,7 +220,7 @@ export function CreateChallengeDialog({
                   <Info className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-blue-900 dark:text-blue-100">
                     <strong>Important:</strong> Each challenge requires a badge. Only one challenge
-                    is allowed per month. After creating the challenge, you'll be able to add tasks.
+                    is allowed per month. After creating the challenge, you&apos;ll be able to add tasks.
                   </AlertDescription>
                 </Alert>
 
@@ -469,7 +469,7 @@ export function CreateChallengeDialog({
                 <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-900 dark:text-green-100">
-                    Challenge "{createdChallenge.theme}" created successfully! Now add tasks to get started.
+                    Challenge &quot;{createdChallenge.theme}&quot; created successfully! Now add tasks to get started.
                   </AlertDescription>
                 </Alert>
 
@@ -511,13 +511,13 @@ export function CreateChallengeDialog({
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold">Challenge Created Successfully!</h3>
                   <p className="text-muted-foreground">
-                    Your challenge "{createdChallenge?.theme}" has been created with {createdTasks.length} task(s).
+                    Your challenge &quot;{createdChallenge?.theme}&quot; has been created with {createdTasks.length} task(s).
                   </p>
                 </div>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>What's Next?</CardTitle>
+                    <CardTitle>What&apos;s Next?</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-left">
                     <div className="flex items-start space-x-3">
