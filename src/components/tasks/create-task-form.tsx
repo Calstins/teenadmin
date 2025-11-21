@@ -67,7 +67,7 @@ function generateUniqueId(prefix: string, index: number): string {
 function processTaskOptions(taskType: string, options: any): any {
     if (!options) return null;
 
-    let processedOptions = { ...options };
+    const processedOptions = { ...options };
 
     switch (taskType) {
         case 'CHECKLIST':
