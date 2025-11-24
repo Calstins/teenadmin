@@ -237,6 +237,36 @@ export const analyticsAPI = {
   },
 };
 
+// Transactions API
+export const transactionsAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/admin/transactions', { params });
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/transactions/${id}`);
+    return response.data;
+  },
+
+  getAnalytics: async (params?: any) => {
+    const response = await api.get('/admin/transactions/analytics', { params });
+    return response.data;
+  },
+
+  getRevenueSummary: async () => {
+    const response = await api.get('/admin/transactions/revenue/summary');
+    return response.data;
+  },
+
+  getTeenTransactions: async (teenId: string, params?: any) => {
+    const response = await api.get(`/admin/transactions/teen/${teenId}`, {
+      params,
+    });
+    return response.data;
+  },
+};
+
 // Raffle API
 export const raffleAPI = {
   getEligible: async (year: number) => {

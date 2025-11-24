@@ -16,6 +16,7 @@ import {
   Gift,
   BarChart3,
   X,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Teens', href: '/dashboard/teens', icon: Users },
   { name: 'Submissions', href: '/dashboard/submissions', icon: FileText },
   { name: 'Badges', href: '/dashboard/badges', icon: Trophy },
+  { name: 'Transactions', href: '/dashboard/transactions', icon: DollarSign },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Raffle', href: '/dashboard/raffle', icon: Gift },
 ];
@@ -60,9 +62,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     if (href === '/dashboard') {
       return pathname === href;
     }
-    // Special handling for challenges route - mark as active for challenge detail pages
     if (href === '/dashboard/challenges') {
       return pathname.startsWith('/dashboard/challenges');
+    }
+    if (href === '/dashboard/transactions') {
+      return pathname.startsWith('/dashboard/transactions');
     }
     return pathname.startsWith(href);
   };
