@@ -1,4 +1,4 @@
-// components/challenges/create-challenge-dialog.tsx
+// components/challenges/create-challenge-dialog.tsx - UPDATED
 'use client';
 
 import { useState } from 'react';
@@ -30,7 +30,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import ImageUploader from '@/components/ui/image-uploader'; // ✅ Changed from CloudinaryUploadWidget
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { CreateTaskForm } from '@/components/tasks/create-task-form';
@@ -408,6 +408,7 @@ export function CreateChallengeDialog({
                             )}
                           />
 
+                          {/* ✅ CHANGED: Using ImageUploader instead of CloudinaryUploadWidget */}
                           <FormField
                             control={form.control}
                             name="badgeData.imageUrl"
@@ -415,10 +416,10 @@ export function CreateChallengeDialog({
                               <FormItem>
                                 <FormLabel>Badge Image *</FormLabel>
                                 <FormControl>
-                                  <CloudinaryUploadWidget
-                                    onUpload={(url) => field.onChange(url)}
-                                    currentImageUrl={field.value}
-                                    buttonText="Upload Badge Image"
+                                  <ImageUploader
+                                    images={field.value ? [field.value] : []}
+                                    onImagesChange={(urls) => field.onChange(urls[0] || '')}
+                                    multiple={false}
                                     folder="teenshapers/badges"
                                   />
                                 </FormControl>

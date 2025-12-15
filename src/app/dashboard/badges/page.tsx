@@ -69,7 +69,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import ImageUploader from '@/components/ui/image-uploader';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface BadgeData {
@@ -698,7 +698,8 @@ export default function BadgeManagementPage() {
   );
 }
 
-// Create Badge Dialog Component WITH CLOUDINARY
+
+// Create Badge Dialog Component WITH IMAGE UPLOADER
 interface CreateBadgeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -738,6 +739,10 @@ function CreateBadgeDialog({
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageChange = (urls: string[]) => {
+    setFormData((prev) => ({ ...prev, imageUrl: urls[0] || '' }));
   };
 
   return (
@@ -808,10 +813,10 @@ function CreateBadgeDialog({
 
           <div>
             <Label htmlFor="imageUrl">Badge Image *</Label>
-            <CloudinaryUploadWidget
-              onUpload={(url) => handleChange('imageUrl', url)}
-              currentImageUrl={formData.imageUrl}
-              buttonText="Upload Badge Image"
+            <ImageUploader
+              images={formData.imageUrl ? [formData.imageUrl] : []}
+              onImagesChange={handleImageChange}
+              multiple={false}
               folder="teenshapers/badges"
             />
             <p className="text-xs text-muted-foreground mt-1">
@@ -855,7 +860,7 @@ function CreateBadgeDialog({
   );
 }
 
-// Edit Badge Dialog Component WITH CLOUDINARY
+// Edit Badge Dialog Component WITH IMAGE UPLOADER
 interface EditBadgeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -910,6 +915,10 @@ function EditBadgeDialog({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleImageChange = (urls: string[]) => {
+    setFormData((prev) => ({ ...prev, imageUrl: urls[0] || '' }));
+  };
+
   if (!badge) return null;
 
   return (
@@ -945,10 +954,10 @@ function EditBadgeDialog({
 
           <div>
             <Label htmlFor="edit-imageUrl">Badge Image *</Label>
-            <CloudinaryUploadWidget
-              onUpload={(url) => handleChange('imageUrl', url)}
-              currentImageUrl={formData.imageUrl}
-              buttonText="Change Badge Image"
+            <ImageUploader
+              images={formData.imageUrl ? [formData.imageUrl] : []}
+              onImagesChange={handleImageChange}
+              multiple={false}
               folder="teenshapers/badges"
             />
           </div>

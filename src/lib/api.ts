@@ -69,6 +69,59 @@ export const authAPI = {
   },
 };
 
+// Upload API
+export const uploadAPI = {
+  uploadImage: async (file: File, folder: string = 'teenshapers') => {
+    const formData = new FormData();
+    formData.append('image', file);
+    // ✅ FIXED: Add folder to formData so backend can use it
+    formData.append('folder', folder);
+
+    const token = localStorage.getItem('admin_token');
+
+    const response = await axios.post(
+      `${API_URL}/api/upload/upload`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  },
+
+  uploadFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('admin_token');
+
+    const response = await axios.post(
+      `${API_URL}/api/upload/upload-file`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  },
+
+  // ✅ FIXED: Delete file using request body (not URL param)
+  deleteFile: async (publicId: string) => {
+    const response = await api.delete('/upload/delete-file', {
+      data: { public_id: publicId },
+    });
+    return response.data;
+  },
+};
+
 // Challenges API
 export const challengesAPI = {
   getAll: async (params?: any) => {

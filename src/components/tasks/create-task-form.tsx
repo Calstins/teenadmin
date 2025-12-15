@@ -55,7 +55,6 @@ interface CreateTaskFormProps {
 const TAB_OPTIONS = [
     'Bible Study',
     'Book of the Month',
-    'Activities',
     'Projects',
     'Other',
 ];

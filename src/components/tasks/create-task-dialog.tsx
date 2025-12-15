@@ -65,7 +65,6 @@ interface CreateTaskDialogProps {
 const TAB_OPTIONS = [
     'Bible Study',
     'Book of the Month',
-    'Activities',
     'Projects',
     'Other',
 ];

@@ -423,7 +423,7 @@ export default function SubmissionsPage() {
                     <SelectValue placeholder="All Years" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Years</SelectItem>
+                    <SelectItem value="all">All Years</SelectItem>
                     {availableYears.map((year) => (
                       <SelectItem key={year} value={year.toString()}>
                         {year}
@@ -447,7 +447,7 @@ export default function SubmissionsPage() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Months</SelectItem>
+                    <SelectItem value="all">All Months</SelectItem>
                     {MONTHS.map((month) => (
                       <SelectItem
                         key={month.value}
@@ -471,7 +471,7 @@ export default function SubmissionsPage() {
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="PENDING">Pending</SelectItem>
                     <SelectItem value="APPROVED">Approved</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
@@ -487,7 +487,7 @@ export default function SubmissionsPage() {
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="TEXT">📝 Text</SelectItem>
                     <SelectItem value="IMAGE">🖼️ Image</SelectItem>
                     <SelectItem value="VIDEO">🎥 Video</SelectItem>

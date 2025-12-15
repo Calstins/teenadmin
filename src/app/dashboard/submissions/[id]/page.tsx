@@ -53,7 +53,7 @@ export default function SubmissionDetailPage() {
     const queryClient = useQueryClient();
     const submissionId = params.id as string;
 
-    const [reviewStatus, setReviewStatus] = useState<string>('');
+    const [reviewStatus, setReviewStatus] = useState<string>('null');
     const [reviewScore, setReviewScore] = useState<string>('');
     const [reviewNote, setReviewNote] = useState<string>('');
 
@@ -534,60 +534,6 @@ export default function SubmissionDetailPage() {
                             </CardContent>
                         </Card>
                     )}
-                </div>
-
-                {/* Right Column - Teen Info & Review Form (1/3 width) */}
-                <div className="space-y-6">
-                    {/* Teen Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Teen Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center space-x-3">
-                                <Avatar className="h-12 w-12">
-                                    <AvatarImage src={data.teen.profilePhoto} />
-                                    <AvatarFallback>
-                                        {data.teen.name
-                                            .split(' ')
-                                            .map((n: string) => n[0])
-                                            .join('')}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-medium">{data.teen.name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Age: {data.teen.age || 'N/A'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            <div className="space-y-2 text-sm">
-                                <div className="flex items-center space-x-2">
-                                    <Mail className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-muted-foreground">
-                                        {data.teen.email}
-                                    </span>
-                                </div>
-                                {data.teen.state && data.teen.country && (
-                                    <div className="flex items-center space-x-2">
-                                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">
-                                            {data.teen.state}, {data.teen.country}
-                                        </span>
-                                    </div>
-                                )}
-                                <div className="flex items-center space-x-2">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-muted-foreground">
-                                        Submitted: {formatDateTime(data.submittedAt)}
-                                    </span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     {/* Review Form */}
                     <Card>
@@ -736,6 +682,60 @@ export default function SubmissionDetailPage() {
                             </CardContent>
                         </Card>
                     )}
+                </div>
+
+                {/* Right Column - Teen Info & Review Form (1/3 width) */}
+                <div className="space-y-6">
+                    {/* Teen Information */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Teen Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center space-x-3">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={data.teen.profilePhoto} />
+                                    <AvatarFallback>
+                                        {data.teen.name
+                                            .split(' ')
+                                            .map((n: string) => n[0])
+                                            .join('')}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-medium">{data.teen.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Age: {data.teen.age || 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            <div className="space-y-2 text-sm">
+                                <div className="flex items-center space-x-2">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                        {data.teen.email}
+                                    </span>
+                                </div>
+                                {data.teen.state && data.teen.country && (
+                                    <div className="flex items-center space-x-2">
+                                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-muted-foreground">
+                                            {data.teen.state}, {data.teen.country}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="flex items-center space-x-2">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                        Submitted: {formatDateTime(data.submittedAt)}
+                                    </span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

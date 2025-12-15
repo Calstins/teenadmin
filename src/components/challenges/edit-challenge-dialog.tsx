@@ -1,4 +1,4 @@
-// components/challenges/edit-challenge-dialog.tsx
+// components/challenges/edit-challenge-dialog.tsx - FIXED VERSION
 'use client';
 
 import { useEffect } from 'react';
@@ -30,7 +30,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget';
+import ImageUploader from '@/components/ui/image-uploader';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 
@@ -282,6 +282,7 @@ export function EditChallengeDialog({
                                                 )}
                                             />
 
+                                            {/* ✅ FIXED: Use correct folder path */}
                                             <FormField
                                                 control={form.control}
                                                 name="badgeData.imageUrl"
@@ -289,10 +290,10 @@ export function EditChallengeDialog({
                                                     <FormItem>
                                                         <FormLabel>Badge Image *</FormLabel>
                                                         <FormControl>
-                                                            <CloudinaryUploadWidget
-                                                                onUpload={(url) => field.onChange(url)}
-                                                                currentImageUrl={field.value}
-                                                                buttonText={challenge.badge ? "Change Badge Image" : "Upload Badge Image"}
+                                                            <ImageUploader
+                                                                images={field.value ? [field.value] : []}
+                                                                onImagesChange={(urls) => field.onChange(urls[0] || '')}
+                                                                multiple={false}
                                                                 folder="teenshapers/badges"
                                                             />
                                                         </FormControl>
