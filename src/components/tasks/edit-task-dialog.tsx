@@ -65,7 +65,7 @@ interface EditTaskDialogProps {
 const TAB_OPTIONS = [
     'Bible Study',
     'Book of the Month',
-    'Projects',
+    'Activities',
     'Other',
 ];
 
