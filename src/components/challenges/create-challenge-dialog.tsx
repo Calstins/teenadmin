@@ -92,6 +92,9 @@ export function CreateChallengeDialog({
   const createMutation = useMutation({
     mutationFn: challengesAPI.create,
     onSuccess: (response) => {
+      // Invalidate immediately so the listing page reflects the new challenge
+      // even while the admin is still on the tasks/complete step of this dialog
+      queryClient.invalidateQueries({ queryKey: ['challenges'] });
       setCreatedChallenge(response.data);
       setCurrentStep('tasks');
       toast.success('Challenge created successfully!', {

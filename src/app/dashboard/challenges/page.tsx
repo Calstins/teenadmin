@@ -89,7 +89,7 @@ interface Challenge {
 
 export default function ChallengesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number | ''>(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,7 +108,7 @@ export default function ChallengesPage() {
     queryKey: ['challenges', selectedYear, searchTerm, statusFilter],
     queryFn: () =>
       challengesAPI.getAll({
-        year: selectedYear,
+        year: selectedYear !== '' ? selectedYear : undefined,
         search: searchTerm || undefined,
         isPublished: statusFilter === 'published' ? true : statusFilter === 'draft' ? false : undefined,
       }),
@@ -154,7 +154,7 @@ export default function ChallengesPage() {
     setCurrentPage(1);
   };
 
-  const handleYearChange = (value: number) => {
+  const handleYearChange = (value: number | '') => {
     setSelectedYear(value);
     setCurrentPage(1);
   };
@@ -251,9 +251,10 @@ export default function ChallengesPage() {
         </div>
         <select
           value={selectedYear}
-          onChange={(e) => handleYearChange(Number(e.target.value))}
+          onChange={(e) => handleYearChange(e.target.value === '' ? '' : Number(e.target.value))}
           className="px-3 py-2 border rounded-md bg-background min-w-[120px]"
         >
+          <option value="">All Years</option>
           {Array.from({ length: 5 }, (_, i) => {
             const year = new Date().getFullYear() - 2 + i;
             return (
