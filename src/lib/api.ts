@@ -250,8 +250,14 @@ export const badgesAPI = {
 
 // Teens API
 export const teensAPI = {
-  getAll: (params?: any) => api.get('/admin/teens', { params }),
-  getById: (id: string) => api.get(`/admin/teens/${id}`),
+  getAll: async (params?: any) => {
+    const response = await api.get('/admin/teens', { params });
+    return response.data;
+  },
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/teens/${id}`);
+    return response.data;
+  },
 };
 
 // Staff API

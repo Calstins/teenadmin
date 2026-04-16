@@ -89,7 +89,7 @@ interface Challenge {
 
 export default function ChallengesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedYear, setSelectedYear] = useState<number | ''>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
   const [currentPage, setCurrentPage] = useState(1);

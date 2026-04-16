@@ -67,12 +67,12 @@ export default function TeensPage() {
     queryKey: ['teens', searchTerm, statusFilter],
     queryFn: async () => {
       console.log('🔍 Fetching teens with search:', searchTerm);
-      const response = await teensAPI.getAll({
+      const data = await teensAPI.getAll({
         search: searchTerm || undefined,
         isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
       });
-      console.log('✅ Teens API response:', response.data);
-      return response.data;
+      console.log('✅ Teens API response:', data);
+      return data;
     },
   });
 

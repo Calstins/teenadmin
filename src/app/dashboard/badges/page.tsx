@@ -133,7 +133,7 @@ export default function BadgeManagementPage() {
     queryFn: () => challengesAPI.getAll({ year: selectedYear }),
   });
 
-  const badges: BadgeData[] = badgesData?.data || [];
+  const badges: BadgeData[] = badgesData?.data?.badges || [];
   const challenges: ChallengeData[] = challengesData?.data?.challenges || [];
 
   // IMPORTANT: Filter challenges to only show those WITHOUT badges
