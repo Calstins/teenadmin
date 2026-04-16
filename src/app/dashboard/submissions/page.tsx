@@ -123,7 +123,7 @@ export default function SubmissionsPage() {
       challengeFilter,
     ],
     queryFn: async () => {
-      const response = await submissionsAPI.getReviewQueue({
+      return await submissionsAPI.getReviewQueue({
         search: searchTerm || undefined,
         status: statusFilter || undefined,
         taskType: taskTypeFilter || undefined,
@@ -131,7 +131,6 @@ export default function SubmissionsPage() {
         year: yearFilter || undefined,
         challengeId: challengeFilter || undefined,
       });
-      return response.data;
     },
   });
 
@@ -150,7 +149,7 @@ export default function SubmissionsPage() {
     },
   });
 
-  const submissions = data?.submissions || [];
+  const submissions = data?.data?.submissions || [];
 
   // Extract available years and challenges dynamically
   useEffect(() => {

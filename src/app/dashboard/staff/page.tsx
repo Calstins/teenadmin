@@ -91,13 +91,13 @@ export default function StaffPage() {
     queryKey: ['staff', searchTerm, roleFilter, statusFilter],
     queryFn: async () => {
       console.log('🔍 Fetching staff with filters');
-      const response = await staffAPI.getAll({
+      const result = await staffAPI.getAll({
         search: searchTerm || undefined,
         role: roleFilter || undefined,
         isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
       });
-      console.log('✅ Staff API response:', response.data);
-      return response.data;
+      console.log('✅ Staff API response:', result);
+      return result;
     },
   });
 

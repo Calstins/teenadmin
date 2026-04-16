@@ -44,8 +44,7 @@ export default function ChallengeDetailsPage() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['challenge', challengeId],
         queryFn: async () => {
-            const response = await challengesAPI.getById(challengeId);
-            return response.data;
+            return await challengesAPI.getById(challengeId);
         },
     });
 
@@ -63,7 +62,7 @@ export default function ChallengeDetailsPage() {
         },
     });
 
-    const challenge = data;
+    const challenge = data?.data;
 
     const getStatusBadge = () => {
         if (!challenge) return null;

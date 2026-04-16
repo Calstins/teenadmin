@@ -61,20 +61,21 @@ export default function SubmissionDetailPage() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['submission', submissionId],
         queryFn: async () => {
-            const response = await submissionsAPI.getById(submissionId);
-            return response.data;
+            return await submissionsAPI.getById(submissionId);
         },
         enabled: !!submissionId,
     });
 
+    const submission = data?.data;
+
     // Set initial values when data loads
     useEffect(() => {
-        if (data) {
-            setReviewStatus(data.status);
-            setReviewScore(data.score?.toString() || '');
-            setReviewNote(data.reviewNote || '');
+        if (submission) {
+            setReviewStatus(submission.status);
+            setReviewScore(submission.score?.toString() || '');
+            setReviewNote(submission.reviewNote || '');
         }
-    }, [data]);
+    }, [submission]);
 
     // Review mutation
     const reviewMutation = useMutation({
@@ -98,7 +99,7 @@ export default function SubmissionDetailPage() {
             return;
         }
 
-        const maxScore = data?.task?.maxScore || 100;
+        const maxScore = submission?.task?.maxScore || 100;
         const scoreValue = reviewScore ? parseInt(reviewScore) : undefined;
 
         if (scoreValue !== undefined && (scoreValue < 0 || scoreValue > maxScore)) {
@@ -414,7 +415,7 @@ export default function SubmissionDetailPage() {
         );
     }
 
-    if (error || !data) {
+    if (error || !submission) {
         return (
             <div className="flex flex-col items-center justify-center h-screen space-y-4">
                 <p className="text-red-600">Failed to load submission</p>
@@ -443,7 +444,7 @@ export default function SubmissionDetailPage() {
                         </p>
                     </div>
                 </div>
-                {getStatusBadge(data.status)}
+                {getStatusBadge(submission?.status)}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -454,41 +455,41 @@ export default function SubmissionDetailPage() {
                         <CardHeader>
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center space-x-3">
-                                    {getTaskTypeIcon(data.task.taskType)}
+                                    {getTaskTypeIcon(submission?.task.taskType)}
                                     <div>
-                                        <CardTitle>{data.task.title}</CardTitle>
+                                        <CardTitle>{submission?.task.title}</CardTitle>
                                         <CardDescription>
-                                            {data.task.challenge.theme} • {data.task.tabName}
+                                            {submission?.task.challenge.theme} • {submission?.task.tabName}
                                         </CardDescription>
                                     </div>
                                 </div>
-                                <Badge variant="outline">{data.task.taskType}</Badge>
+                                <Badge variant="outline">{submission?.task.taskType}</Badge>
                             </div>
                         </CardHeader>
-                        {data.task.description && (
+                        {submission?.task.description && (
                             <CardContent>
                                 <p className="text-sm text-muted-foreground">
-                                    {data.task.description}
+                                    {submission?.task.description}
                                 </p>
                             </CardContent>
                         )}
                     </Card>
 
                     {/* Submission Content */}
-                    {renderSubmissionContent(data.content, data.task.taskType)}
+                    {renderSubmissionContent(submission?.content, submission?.task.taskType)}
 
                     {/* File Attachments */}
-                    {data.fileUrls && data.fileUrls.length > 0 && (
+                    {submission?.fileUrls && submission.fileUrls.length > 0 && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center space-x-2">
                                     <ImageIcon className="h-4 w-4" />
-                                    <span>File Attachments ({data.fileUrls.length})</span>
+                                    <span>File Attachments ({submission?.fileUrls.length})</span>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {data.fileUrls.map((url: string, index: number) => (
+                                    {submission?.fileUrls.map((url: string, index: number) => (
                                         <div
                                             key={index}
                                             className="border rounded-lg overflow-hidden"
@@ -582,13 +583,13 @@ export default function SubmissionDetailPage() {
                                 <Input
                                     type="number"
                                     min="0"
-                                    max={data.task.maxScore || 100}
-                                    placeholder={`0 - ${data.task.maxScore || 100}`}
+                                    max={submission?.task.maxScore || 100}
+                                    placeholder={`0 - ${submission?.task.maxScore || 100}`}
                                     value={reviewScore}
                                     onChange={(e) => setReviewScore(e.target.value)}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Max score: {data.task.maxScore || 100} points
+                                    Max score: {submission?.task.maxScore || 100} points
                                 </p>
                             </div>
 
@@ -610,14 +611,14 @@ export default function SubmissionDetailPage() {
                             </div>
 
                             {/* Current Score Display */}
-                            {data.score && (
+                            {submission?.score && (
                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                                     <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                                        Current Score: {data.score}/{data.task.maxScore || 100}
+                                        Current Score: {submission?.score}/{submission?.task.maxScore || 100}
                                     </p>
-                                    {data.reviewNote && (
+                                    {submission?.reviewNote && (
                                         <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                                            Note: {data.reviewNote}
+                                            Note: {submission?.reviewNote}
                                         </p>
                                     )}
                                 </div>
@@ -664,18 +665,18 @@ export default function SubmissionDetailPage() {
                     </Card>
 
                     {/* Reviewer Info (if already reviewed) */}
-                    {data.reviewer && (
+                    {submission?.reviewer && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-sm">Reviewed By</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-1 text-sm">
-                                    <p className="font-medium">{data.reviewer.name}</p>
-                                    <p className="text-muted-foreground">{data.reviewer.email}</p>
-                                    {data.reviewedAt && (
+                                    <p className="font-medium">{submission?.reviewer.name}</p>
+                                    <p className="text-muted-foreground">{submission?.reviewer.email}</p>
+                                    {submission?.reviewedAt && (
                                         <p className="text-xs text-muted-foreground">
-                                            {formatDateTime(data.reviewedAt)}
+                                            {formatDateTime(submission?.reviewedAt)}
                                         </p>
                                     )}
                                 </div>
@@ -694,18 +695,18 @@ export default function SubmissionDetailPage() {
                         <CardContent className="space-y-4">
                             <div className="flex items-center space-x-3">
                                 <Avatar className="h-12 w-12">
-                                    <AvatarImage src={data.teen.profilePhoto} />
+                                    <AvatarImage src={submission?.teen.profilePhoto} />
                                     <AvatarFallback>
-                                        {data.teen.name
+                                        {submission?.teen.name
                                             .split(' ')
                                             .map((n: string) => n[0])
                                             .join('')}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="font-medium">{data.teen.name}</p>
+                                    <p className="font-medium">{submission?.teen.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        Age: {data.teen.age || 'N/A'}
+                                        Age: {submission?.teen.age || 'N/A'}
                                     </p>
                                 </div>
                             </div>
@@ -716,21 +717,21 @@ export default function SubmissionDetailPage() {
                                 <div className="flex items-center space-x-2">
                                     <Mail className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-muted-foreground">
-                                        {data.teen.email}
+                                        {submission?.teen.email}
                                     </span>
                                 </div>
-                                {data.teen.state && data.teen.country && (
+                                {submission?.teen.state && submission?.teen.country && (
                                     <div className="flex items-center space-x-2">
                                         <MapPin className="h-4 w-4 text-muted-foreground" />
                                         <span className="text-muted-foreground">
-                                            {data.teen.state}, {data.teen.country}
+                                            {submission?.teen.state}, {submission?.teen.country}
                                         </span>
                                     </div>
                                 )}
                                 <div className="flex items-center space-x-2">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-muted-foreground">
-                                        Submitted: {formatDateTime(data.submittedAt)}
+                                        Submitted: {formatDateTime(submission?.submittedAt)}
                                     </span>
                                 </div>
                             </div>
