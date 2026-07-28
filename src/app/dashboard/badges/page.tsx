@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { challengesAPI, badgesAPI } from '@/lib/api';
+import { challengesAPI, badgesAPI, analyticsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +29,7 @@ import {
   DollarSign,
   Users,
   AlertCircle,
+  Percent,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -125,6 +126,15 @@ export default function BadgeManagementPage() {
       });
       return response;
     },
+  });
+
+  // Optional-payment adoption stats: badges are always free to earn by
+  // completing a challenge's tasks — this shows how many teens *also*
+  // chose to purchase, which is the real signal for whether the optional
+  // payment model is landing, separate from raw transaction revenue.
+  const { data: badgeStatsData } = useQuery({
+    queryKey: ['admin-badge-stats', selectedYear],
+    queryFn: () => analyticsAPI.getBadgeStats({ year: selectedYear }),
   });
 
   // Fetch challenges for dropdown
@@ -231,6 +241,19 @@ export default function BadgeManagementPage() {
     setDeleteDialogOpen(true);
   };
 
+  // Optional-payment adoption numbers for the stats card below.
+  const badgeStats = badgeStatsData?.data;
+  const badgesEarnedFree = badgeStats?.statusBreakdown?.earned || 0;
+  const badgesPurchased = badgeStats?.totalPurchased || 0;
+  const purchaseRevenue = badgeStats?.totalRevenue || 0;
+  // Of badges actually earned (i.e. the teen had the option to also buy),
+  // what fraction were purchased too. Guards div-by-zero when nothing's
+  // been earned yet for the selected year.
+  const adoptionRate =
+    badgesEarnedFree > 0
+      ? Math.min(100, Math.round((badgesPurchased / badgesEarnedFree) * 100))
+      : 0;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -269,6 +292,63 @@ export default function BadgeManagementPage() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Optional-payment adoption: badges are always free to earn — this
+          shows how many teens also chose to purchase, separate from raw
+          transaction revenue on the Transactions page. */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Badges Earned (Free)</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{badgesEarnedFree}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              completed for free in {selectedYear}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Badges Purchased (Optional)</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{badgesPurchased}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              purchased in {selectedYear}, never required
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Purchase Adoption Rate</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{adoptionRate}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              of earned badges were also purchased
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Revenue from Purchases</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(purchaseRevenue)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              from optional badge purchases
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Show warning if no available challenges */}
